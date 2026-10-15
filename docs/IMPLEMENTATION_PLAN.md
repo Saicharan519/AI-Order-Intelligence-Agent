@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.2 |
+| Version | 1.3 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) |
@@ -63,11 +63,11 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 | T-0.1 | Verify the toolchain: Python 3.11 or later, git, Docker with Compose. Record versions in `docs/environment.md`. | Versions documented |
 | T-0.2 | Create the repository layout (technical design, section 4), virtual environment, `.gitignore` (including `.env`, `data/raw/`, `eval/cache/`), and `.env.example` (names only). Add the three design documents under `docs/`. | Initial commit |
 | T-0.3 | Write `docker-compose.yml` with PostgreSQL. Choose the pinned image tag after checking current tags; add a healthcheck; bind the database port to localhost only. | `docker compose up -d db` reports healthy |
-| T-0.4 | Create the DeepSeek API key and store it only in `.env`. Record in `docs/provider_facts.md`: base URL, model identifiers, usage fields including cache hits, thinking-mode default, rate limits, balance expiry, and minimum top-up (Q-02). | Provider facts documented |
+| T-0.4 | Create a Gemini API key in Google AI Studio (in a project without billing) and store it only in `.env`. Record in `docs/provider_facts.md`: the project's free-tier limits (RPM, TPM, RPD) from AI Studio, model identifiers, usage fields returned through the OpenAI-compatible endpoint (including thinking tokens), and the lowest thinking level accepted (Q-02). | Provider facts documented |
 | T-0.5 | Calibration script (about 20 lines): make 10 small calls with `max_tokens` set, log token usage, and compute cost. Compare with the PRD estimates. | Measured cost per call recorded |
 | T-0.6 | Secret hygiene: confirm `.env` is ignored and add a secret-pattern check to run before commits. | Check passes |
 
-**Tests:** `.env` is untracked · the database container is healthy · one JSON-mode call succeeds · computed cost matches the provider balance change within rounding.
+**Tests:** `.env` is untracked · the database container is healthy · one JSON-mode call succeeds · recorded token counts match the usage shown in AI Studio · thinking does not exhaust the output limit.
 **Acceptance criteria:** Q-02 is answered in writing; measured per-call cost is known; the PRD cost estimates are confirmed or amended.
 **Deliverables:** repository skeleton, `docs/environment.md`, `docs/provider_facts.md`.
 
@@ -151,7 +151,7 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 
 | Task | Description | Expected outcome |
 |---|---|---|
-| T-5.1 | `LLMClient` with pricing, budget guard, cache, dry-run mode, and usage-to-cost conversion; unit tests for the guard using a fake model. | Client tested |
+| T-5.1 | `LLMClient` with quota guard, rate-limit retries, cache, dry-run mode, usage ledger, and notional-cost conversion; unit tests for the guard using a fake model. | Client tested |
 | T-5.2 | SQL-generation prompts v1: A (raw DDL), B (plus glossary), C (views plus glossary), with a static prefix first for caching. | Prompts versioned |
 | T-5.3 | Run A, B, and C on the development split. Tag every failure (technical design, section 8.2). Iterate prompts at most three times, each recorded as a prompt version; tune on the development split only. | Dev results and failure tags |
 | T-5.4 | Build configuration D (validator, `EXPLAIN` gate, up to two repairs) and tune the `EXPLAIN` ceilings from real queries. | Config D working |
@@ -159,8 +159,8 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 | T-5.6 | Write `eval/reports/ablation.md`: accuracy by configuration and category, runs versus correct, repairs used, failure-tag counts, cost, and latency. | Report |
 | T-5.7 | Review SC-04, SC-05, and SC-10 against the results; revise targets only with a written rationale (Q-06). | Targets confirmed or amended |
 
-**Checkpoint:** if configuration D scores below 50% on the test split, pause before M6 and choose among improving the views and glossary, adding static few-shot examples (configuration E), or using `deepseek-v4-pro` for SQL generation (after calculating the cost impact).
-**Tests:** re-running from cache reproduces the numbers exactly; the spend ledger matches the provider balance.
+**Checkpoint:** if configuration D scores below 50% on the test split, pause before M6 and choose among improving the views and glossary, adding static few-shot examples (configuration E), or using `gemini-3.8-flash` for SQL generation (after checking its free-tier limits).
+**Tests:** re-running from cache reproduces the numbers exactly; the usage ledger matches the usage shown in AI Studio.
 **Acceptance criteria:** ablation table for A to D on development and test splits; failure taxonomy; measured cost and latency; Q-06 resolved.
 **Deliverables:** LLM client, prompts, evaluation reports.
 
@@ -178,7 +178,7 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 | T-6.6 | Decide whether to merge router and SQL generation, using measured cost and accuracy. | Decision recorded |
 | T-6.7 | Evaluate routing (SC-07) and faithfulness (SC-06) on all labelled items. | Metrics reported |
 
-**Tests:** fake-LLM graph tests for every edge (success, validator rejection, execution error, repairs exhausted, budget block, clarify, refuse) · grounding unit tests with true and false numbers.
+**Tests:** fake-LLM graph tests for every edge (success, validator rejection, execution error, repairs exhausted, quota block, clarify, refuse) · grounding unit tests with true and false numbers.
 **Acceptance criteria:** SC-06 and SC-07 measured and reported; PRD Examples 1 and 2 produced end to end (cache permitted); Q-05 resolved.
 **Deliverables:** router, answer writer, grounding and lint modules, graph, evaluation results.
 
@@ -222,11 +222,11 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 
 | Task | Description | Expected outcome |
 |---|---|---|
-| T-9.1 | FastAPI endpoints and Pydantic contracts (technical design, section 9); access code; rate limit; `/v1/budget`. | API |
+| T-9.1 | FastAPI endpoints and Pydantic contracts (technical design, section 9); access code; rate limit; `/v1/usage`. | API |
 | T-9.2 | Trace recorder wired end to end; administrative queries for p50 and p95 latency, cost per question, and rejection rate. | Traces and queries |
 | T-9.3 | Streamlit UI: input, four result components, scope panel, evidence panel, follow-up suggestions, scope bar, cost and latency line. | UI |
 | T-9.4 | Confirm Streamlit is sufficient (Q-08); reproduce PRD Examples 1 to 3 end to end. | Examples reproduced |
-| T-9.5 | Error states: budget exhausted, validation failure, timeout, clarify, refuse, untraced number. | Error handling |
+| T-9.5 | Error states: quota exhausted, validation failure, timeout, clarify, refuse, untraced number. | Error handling |
 
 **Tests:** API contract tests · no secrets in logs or traces (search for the key) · the three examples render correctly.
 **Acceptance criteria:** FR-01, FR-08 to FR-10, FR-15, and FR-16 satisfied; NFR-06 met; Q-08 resolved.
@@ -240,7 +240,7 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 |---|---|---|
 | T-10.1 | CI: lint, unit tests, integration tests (Postgres service container with the mini fixture), deterministic safety tests, secret scan; no LLM calls. | CI green |
 | T-10.2 | Variance: run configuration D three times on the test split and report the spread. | Variance reported |
-| T-10.3 | Model comparison: `deepseek-v4-pro` on the test split and five investigations; accuracy, cost, and latency table. Include configuration E if M5 indicated it. | `model_comparison.md` |
+| T-10.3 | Model comparison: `gemini-3.8-flash` on the test split and five investigations; accuracy, tokens, notional cost, and latency table. Include configuration E if M5 indicated it. | `model_comparison.md` |
 | T-10.4 | Cost and latency report from the trace tables. | Report |
 | T-10.5 | README: overview, architecture diagram (technical design, section 2), results tables, precisely worded safety claims, limitations (technical design section 7.4, PRD non-goals), cost, and run instructions. | README |
 | T-10.6 | Fresh-clone test in a new directory following only the README (SC-11). | Passes |
@@ -274,14 +274,14 @@ If scope must be reduced, items are cut in this order:
 4. F-11 (model comparison).
 5. One Investigate playbook. The late-delivery playbook is retained because it has the strongest measured signal.
 
-The validator, database roles, golden-set evaluation, safety suite, budget guard, and honest reporting are not descoped.
+The validator, database roles, golden-set evaluation, safety suite, quota guard, and honest reporting are not descoped.
 
 ## 5. Where open questions are resolved
 
 | Question | Milestone |
 |---|---|
 | Q-01 Olist licence | M1 |
-| Q-02 DeepSeek API details | M0 |
+| Q-02 Gemini API details and free-tier limits | M0b |
 | Q-03 PostgreSQL behaviours | M2, M4 |
 | Q-04 SQL parser choice | M4 |
 | Q-05 LangGraph API | M6 |
@@ -298,3 +298,4 @@ The validator, database roles, golden-set evaluation, safety suite, budget guard
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Commits and paid calls require the project owner's approval. M0 split into M0a (local setup, free) and M0b (provider calibration, paid, approval required). |
 | 1.2 | 2026-10-15 | M2 acceptance includes the empty month 2016-11; mini fixture moved to M7/M10. |
+| 1.3 | 2026-10-15 | LLM provider changed to the Gemini API free tier (PRD v1.4): M0b, M5, M6, M9, and M10 tasks now refer to quotas, usage, and Gemini models instead of a dollar budget and DeepSeek models. |

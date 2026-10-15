@@ -41,6 +41,13 @@ def test_ignores_code_reading_env():
     assert rules("a.py", 'password = os.environ["OI_AGENT_PASSWORD"]') == []
 
 
+def test_token_counts_are_not_secrets_but_tokens_are():
+    # regression: a quota setting was flagged because its name contains TOKEN
+    assert rules(".env.example", "LLM_MAX_TOKENS_PER_DAY=1000000") == []
+    assert "env-assignment" in rules("x.sh", "GITHUB_TOKEN=abcdef123456")
+    assert "env-assignment" in rules("x.sh", "GEMINI_API_KEY=abcdef123456")
+
+
 def test_ignores_python_constants_with_secret_like_names():
     # regression: the scanner flagged its own constants
     assert rules("a.py", "MIN_KNOWN_SECRET_LEN = 8") == []

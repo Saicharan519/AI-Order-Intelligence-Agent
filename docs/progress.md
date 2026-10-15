@@ -2,7 +2,19 @@
 
 ## Current milestone
 
-**M4 complete (pending commit approval).** Next: M0b (DeepSeek calibration, needs the API key and approval), then M5 (baseline agent and ablations, paid).
+**M4 complete. LLM provider changed to the Gemini API free tier.** Next: M0b (Gemini key from the owner; free-tier limits recorded; about 10 calibration calls after approval), then M5.
+
+## 2026-10-15 — Provider change: DeepSeek to Gemini (free tier)
+
+**Why:** the DeepSeek top-up could not be paid with the owner's card. The owner chose the free Gemini API.
+
+**Verified from Google's official documentation (2026-10-15):** OpenAI-compatible endpoint (beta), so the planned `openai` SDK client still works; `gemini-3.5-flash-lite` and `gemini-3.8-flash` are stable, free-tier models recommended for new projects; thinking cannot be switched off on Gemini 3 models and its tokens count toward each call's output limit; free-tier rate limits are visible only in Google AI Studio; free-tier content may be used to improve Google's products.
+
+**Documents changed:** PRD v1.4 (section 13 rewritten; G5, F-09, F-11, F-16, FR-16, FR-18, FR-20, NFR-02, NFR-05, SC-09, A-03, A-05, R-05, R-07, R-10, Q-02), technical design v1.5 (section 10 rewritten; principle 6, diagram, stack, threat T6, usage endpoint, Q-02), implementation plan v1.3, `.env.example` (Gemini settings and quota caps). The local `.env` was updated with empty Gemini entries (no values printed).
+
+**Unchanged:** architecture, database, validator, executor, evaluation design. Only the LLM provider, the cost model ($2 budget → $0 with quota caps and a notional cost report), and output limits (room for thinking tokens) change.
+
+**API cost incurred:** $0.00
 
 ## 2026-10-15 — M4: validator and guarded executor
 

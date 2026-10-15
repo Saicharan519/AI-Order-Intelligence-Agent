@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.3 |
+| Version | 1.4 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -18,7 +18,7 @@ The project is designed around verifiable behaviour rather than demo polish:
 - The agent cannot modify or escape the database, even if the language model misbehaves. Safety is enforced by database permissions and deterministic code, not by prompts.
 - SQL accuracy is measured on a golden question set, with ablations that isolate the contribution of each design element.
 - Every number in an answer is traceable to a query result.
-- The whole system, including evaluation, is built within a US$2 LLM API budget.
+- The whole system, including evaluation, runs on the free tier of the Gemini API with no paid LLM spend; token usage and a notional paid-tier cost are still measured.
 
 ## 2. Problem statement
 
@@ -47,7 +47,7 @@ The system is not a dashboard replacement and not a full BI tool. It provides co
 - G2. Investigate two diagnostic questions (late deliveries, low review scores) with findings computed in code and honestly caveated.
 - G3. Enforce safety through database roles and deterministic validation.
 - G4. Measure accuracy (with ablations), answer faithfulness, safety, latency, and cost, and report results as measured.
-- G5. Keep total LLM API spend within US$2, including evaluation.
+- G5. Keep LLM API spend at US$0 by staying within free-tier quotas, including evaluation; measure usage and report the notional paid-tier cost.
 - G6. Be reproducible: a clean clone reaches a working application by following the README.
 
 ### Non-goals (version 1)
@@ -137,14 +137,14 @@ These definitions are versioned in `glossary/glossary.md`, supplied to the model
 | F-06 | Evidence-first UI: four result components and a trace panel | Must |
 | F-07 | Golden-set evaluation with ablations | Must |
 | F-08 | Safety test suite, including an injection test using review-style text | Must |
-| F-09 | Request tracing and cost ledger with hard budget caps | Must |
+| F-09 | Request tracing and usage ledger with hard quota caps | Must |
 | F-10 | Investigate mode: two playbooks and follow-up scope inheritance | Should |
-| F-11 | Model comparison (two DeepSeek models on a subset) | Should |
+| F-11 | Model comparison (two Gemini models on a subset) | Should |
 | F-12 | Continuous integration for deterministic tests | Should |
 | F-13 | Local setup, README, and architecture diagram | Must |
 | F-14 | AWS deployment and demo video | Should |
 | F-15 | Seller-scoped mode using row-level security | Could |
-| F-16 | Second model from another provider | Could |
+| F-16 | Second model from another provider (for example, a paid DeepSeek model if payment becomes possible) | Could |
 
 ### 7.2 Out of scope
 
@@ -176,7 +176,7 @@ The output component is chosen by deterministic rules on the shape of the result
 | Period includes a partial month | Warning in the scope panel. |
 | Empty result | States that no rows matched and shows the filters applied. |
 | Validation or timeout failure after retries | Reports the failure and the attempted SQL. No answer is fabricated. |
-| Budget exhausted | Displays a budget message. Cached answers remain available. |
+| Quota exhausted | Displays a quota message with the reset time. Cached answers remain available. |
 | Number cannot be traced to evidence | The answer is shown with a visible warning. |
 
 ### 8.3 Example interactions
@@ -260,21 +260,21 @@ Priority follows MoSCoW. "Verification" names the test level that demonstrates t
 | FR-13 | Rankings shall apply the minimum-volume rule and always display the sample size. | Must | Eval, unit test |
 | FR-14 | Partial-period warnings shall be derived from the coverage view. | Must | Integration test |
 | FR-15 | Every request shall write a trace containing steps, tokens, cost, and latency. | Must | Integration test |
-| FR-16 | The budget guard shall block LLM calls beyond the configured total and daily caps. | Must | Unit test |
+| FR-16 | The quota guard shall block LLM calls beyond the configured per-minute and daily request and token caps. | Must | Unit test |
 | FR-17 | The evaluation CLI shall run configurations over the golden set and write JSON and Markdown reports with per-category accuracy, cost, latency, and failure tags. | Must | Eval run |
-| FR-18 | The safety suite shall run deterministic tests without an LLM, and LLM-involving tests under a budget cap. | Must | Safety report |
+| FR-18 | The safety suite shall run deterministic tests without an LLM, and LLM-involving tests under the quota cap. | Must | Safety report |
 | FR-19 | The data loader shall be reproducible and shall assert expected row counts. | Must | Integration test |
-| FR-20 | A public deployment shall require an access code and enforce a rate limit and a daily spend cap. | Should | Deployment smoke test |
+| FR-20 | A public deployment shall require an access code and enforce a rate limit and a daily request cap. | Should | Deployment smoke test |
 
 ## 10. Non-functional requirements
 
 | ID | Requirement |
 |---|---|
 | NFR-01 | Security by construction: the model never holds credentials and never connects to the database; the blast radius of any model failure is bounded by database permissions. |
-| NFR-02 | Cost: total LLM API spend shall not exceed US$2.00, enforced by a hard cap in code. |
+| NFR-02 | Cost: no paid LLM spend. The API key belongs to a project without billing enabled, and a quota guard in code keeps usage below the free-tier limits. |
 | NFR-03 | Latency (initial target): p95 at or below 20 s for Ask and 45 s for Investigate. |
 | NFR-04 | Reproducibility: pinned dependencies, deterministic tests, cached evaluations, and temperature 0 where available. |
-| NFR-05 | Privacy: no personal data is used, and review comment text is never sent to the model in v1. |
+| NFR-05 | Privacy: no personal data is used, review comment text is never sent to the model in v1, and no secret is placed in a prompt. Free-tier prompts may be used by the provider to improve its products, which is acceptable only because of these rules. |
 | NFR-06 | Observability: every request is traceable end to end; logs and traces never contain secrets. |
 | NFR-07 | Portability: the system runs through Docker Compose on Windows, macOS, and Linux. |
 | NFR-08 | Maintainability: typed code, linting, and documentation kept consistent with the implementation. |
@@ -308,31 +308,34 @@ The values below are initial targets. They are reviewed after the baseline evalu
 | SC-06 | Answer faithfulness | At least 95% of answers have no untraced number (after at most one regeneration) | Grounding report |
 | SC-07 | Routing | At least 90% correct routes across all labelled items (counts reported) | Evaluation report |
 | SC-08 | Investigation | Every number traced in 15 of 15 cases; top driver agrees in at least 90% of positive cases; 3 of 3 negative controls report no notable issue; 2 of 2 planted anomalies detected | Investigation report |
-| SC-09 | Cost | Total API spend at most US$2.00; cost per question and p50 and p95 latency reported | Spend ledger |
+| SC-09 | Cost | US$0.00 billed; requests, tokens, and notional paid-tier cost per question, and p50 and p95 latency reported | Usage ledger |
 | SC-10 | Latency | p95 within NFR-03 | Evaluation report |
 | SC-11 | Reproducibility | A clean clone reaches a working application in at most 6 commands following the README | Fresh-directory run |
 | SC-12 | Documentation | README with architecture diagram, ablation table, safety results, limitations, and cost; demo video of 3 minutes or less | Repository |
 
-## 13. Cost constraints
+## 13. Cost and quota constraints
 
-The project is limited to **US$2.00** of LLM API spend, including all evaluation runs.
+The project uses the **free tier of the Google Gemini API**. The target is **US$0.00 of LLM spend**: the key comes from a Google AI Studio project **without billing enabled**, so requests beyond the free quota are refused rather than charged. The binding constraints are therefore the free-tier **rate limits** (requests per minute, tokens per minute, requests per day), not money. (Version 1.3 of this document planned a US$2 DeepSeek budget; the DeepSeek top-up could not be paid with the owner's card, so the provider was changed in version 1.4.)
 
-Provider pricing used for planning (DeepSeek official pricing page, retrieved 2026-10-15), per 1M tokens:
+Models (official Gemini models page, retrieved 2026-10-15; Google recommends these two for new projects):
 
-| Model | Input, cache miss (peak / off-peak) | Input, cache hit (peak / off-peak) | Output (peak / off-peak) |
+| Role | Model ID | Free tier | Paid-tier price per 1M tokens (used only for the notional cost report) |
 |---|---|---|---|
-| `deepseek-flash` | $0.30 / $0.15 | $0.006 / $0.003 | $1.20 / $0.60 |
-| `deepseek-v4-pro` | $1.32 / $0.66 | $0.044 / $0.022 | $3.96 / $1.98 |
+| Primary | `gemini-3.5-flash-lite` | Yes, $0 | Input $0.30; output $2.50 (output includes thinking tokens) |
+| Comparison (F-11) | `gemini-3.8-flash` | Yes, $0 | Input $0.75; output $3.75 through 2026-12-31 ($1.50 / $7.50 from 2027-01-01) |
 
-Peak hours are 01:00–04:00 and 06:00–10:00 UTC on weekdays. All other times are off-peak. The retired alias `deepseek-v4-flash` is not used; model identifiers are read from configuration. Thinking mode is the provider's default and bills reasoning tokens as output, so every call explicitly selects non-thinking mode (technical design, section 10.2). The prices and model identifiers above were re-checked against the official page on 2026-10-15.
+Facts that shape the design (official documentation, 2026-10-15):
 
-Estimated cost per request (to be calibrated in M0 with real usage figures):
+- An OpenAI-compatible endpoint exists (`https://generativelanguage.googleapis.com/v1beta/openai/`, marked beta), so the `openai` SDK with a custom base URL is still used.
+- Thinking cannot be switched off on Gemini 3 models, only lowered; thinking tokens count as output tokens and **count toward the output-token limit of each call**. Each call therefore sets the lowest supported thinking level and an output limit with room for thinking.
+- Free-tier rate limits are set per Google Cloud project and are shown in Google AI Studio, not on the public pages; they are recorded in M0b (Q-02).
+- Free-tier content may be used by Google to improve its products. This is acceptable for this project because the dataset is public and anonymised, review text is never sent, and no secret is ever placed in a prompt (NFR-05).
 
-- Full Ask request (router, SQL generation, answer; about 5.5k input and 800 output tokens): about $0.002–0.003 at peak price without caching, about $0.0015 off-peak.
-- Ablation runs for configurations A to C (SQL generation only; about 3k input and 300 output tokens): about $0.001 per question.
-- Investigate request: about $0.005.
+Planned request volume (whole project, before caching): calibration about 10; M5 ablations about 700 (configurations A to C on the development split with up to three prompt iterations, configuration D with repairs, one run per configuration on the test split); M6 routing and answers about 300; M7 investigations about 60; M8 injection tests about 40; M10 variance and model comparison about 250. Total about 1,400 requests. Runs are split into daily batches that stay below the recorded daily limit; the evaluation cache makes unchanged re-runs free.
 
-Cost controls are described in the technical design, section 10.3: a hard cap in code, an evaluation cache, bounded output length per call, and scheduling paid evaluation runs for off-peak hours. If measured cost exceeds twice the estimate, the number of repeated runs is reduced before any safety tests are cut.
+Usage is still metered: every call records input, output and thinking tokens, and a **notional cost** at paid-tier prices is reported per question, so the project can state what it would cost to run on the paid tier.
+
+Quota controls are described in the technical design, section 10.3: a quota guard in code (daily request and token caps set below the free-tier limits), an evaluation cache, bounded output per call, and bounded retries on rate-limit errors. If the free quota proves too small, evaluation runs are spread over more days before any evaluation or safety test is cut.
 
 ## 14. Assumptions and dependencies
 
@@ -342,15 +345,15 @@ Cost controls are described in the technical design, section 10.3: a hard cap in
 |---|---|
 | A-01 | Free-text review comments may contain personal details; they are excluded from model context in v1. |
 | A-02 | Monetary amounts are in Brazilian reais (BRL). |
-| A-03 | LLM cost estimates in section 13 hold within a factor of two; this is checked in M0. |
+| A-03 | The free-tier daily limits allow each evaluation batch to complete within a day; checked in M0b. |
 | A-04 | Docker and Docker Compose are available on the development machine. |
-| A-05 | The prepaid API balance does not expire during the project. |
+| A-05 | The chosen models remain available on the free tier during the project (preview models are avoided because they can be shut down at short notice). |
 | A-06 | Streamlit is sufficient to render the four result components. |
 | A-07 | A 2 GB cloud instance can run the database, API, and UI together. |
 
 **Dependencies**
 
-The Olist dataset (manual download from Kaggle), the DeepSeek API, Docker, GitHub (CI), and AWS (deployment only).
+The Olist dataset (manual download from Kaggle), the Google Gemini API (free tier, Google AI Studio key), Docker, GitHub (CI), and AWS (deployment only).
 
 ## 15. Risks
 
@@ -360,19 +363,19 @@ The Olist dataset (manual download from Kaggle), the DeepSeek API, Docker, GitHu
 | R-02 | Ambiguous business definitions | Glossary, scope panel, clarify route |
 | R-03 | Causal overclaiming | Association-only language lint, caveats, negative controls |
 | R-04 | Prompt injection, particularly through review text | Database-level blast radius, text excluded from v1 context, dedicated injection suite |
-| R-05 | Budget overrun | Hard caps, response cache, off-peak runs, measured calibration |
+| R-05 | Free-tier quota exhausted or reduced | Quota guard, response cache, daily batches, bounded retries; billing never enabled, so overuse is refused rather than charged |
 | R-06 | Invalid evaluation (wrong references, tuning on test data) | Development/test split, independent references, manual review of every mismatch |
-| R-07 | Abuse of a paid key through a public demo | Access code, rate limits, daily cap, small balance, kill switch |
+| R-07 | Abuse of the API key through a public demo (quota exhaustion) | Access code, rate limits, daily cap, kill switch, key rotation |
 | R-08 | Scope creep | Priority tiers; Should and Could items are cut first |
 | R-09 | Conclusions drawn from small samples | Minimum-volume rule; sample size always shown |
-| R-10 | Tool or API drift (DeepSeek, LangGraph, AWS terms) | Pinned versions; open questions below |
+| R-10 | Tool or API drift (Gemini models and free-tier terms, OpenAI-compatibility layer in beta, LangGraph, AWS terms) | Pinned versions; stable (not preview) model IDs from configuration; open questions below |
 
 ## 16. Open questions
 
 | ID | Question | Resolved in |
 |---|---|---|
 | Q-01 | Olist licence and redistribution terms (the CSV files are not committed) | M1, before publishing |
-| Q-02 | DeepSeek API details: base URL, usage fields including cache hits, default thinking mode, rate limits, balance expiry, minimum top-up | M0 |
+| Q-02 | Gemini API details: free-tier rate limits for the project, usage fields (including thinking tokens) through the OpenAI-compatible endpoint, supported thinking levels for `gemini-3.5-flash-lite`, JSON output behaviour | M0b |
 | Q-03 | PostgreSQL behaviours the safety design relies on (technical design, section 7.2) | M2, M4 |
 | Q-04 | SQL parser choice (`sqlglot` versus `pglast`) on the attack cases | M4 |
 | Q-05 | Current LangGraph API | M6 |
@@ -394,3 +397,4 @@ Seller-scoped mode with row-level security, additional playbooks (seller scoreca
 | 1.1 | 2026-10-15 | Corrected the undelivered-order count (2,965 without a delivery date, not 2,963). Execution accuracy scored on answerable items with confidence intervals; out-of-scope items scored as routing only. Added non-thinking-mode requirement (verified provider default). Marked dataset figures provisional until reproduced. |
 | 1.2 | 2026-10-15 | M1 reproduction of section 5 figures with our own SQL (see `docs/data_profile.md`): all match except the small-seller figure, which is 51 under the date-based definition of late (57 was the timestamp-based count). Reviews created before the delivery date: 5.3% ("about 5%" confirmed). |
 | 1.3 | 2026-10-15 | M2: untranslated categories keep their Portuguese names (instead of `unknown`); impossible negative stage durations are NULL; November 2016 (zero orders) is listed as a partial month. Examples 1 and 2 and the Example 3 headline reproduced exactly through the views. |
+| 1.4 | 2026-10-15 | LLM provider changed from DeepSeek (paid, US$2 budget) to the Gemini API free tier because the DeepSeek top-up could not be paid. Section 13 rewritten (models, quotas, notional cost); G5, F-09, F-11, F-16, FR-16, FR-18, FR-20, NFR-02, NFR-05, SC-09, A-03, A-05, R-05, R-07, R-10, and Q-02 updated. |

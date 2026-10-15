@@ -23,7 +23,8 @@ from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-SECRET_NAME = r"[A-Z0-9_]*(?:PASSWORD|API_KEY|SECRET|TOKEN|ACCESS_CODE)[A-Z0-9_]*"  # noqa: S105
+# TOKEN(?!S): an access TOKEN is secret, a count of TOKENS (e.g. LLM_MAX_TOKENS_PER_DAY) is not.
+SECRET_NAME = r"[A-Z0-9_]*(?:PASSWORD|API_KEY|SECRET|TOKEN(?!S)|ACCESS_CODE)[A-Z0-9_]*"  # noqa: S105
 
 PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("api-key-sk", re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}")),

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.4 |
+| Version | 1.5 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -16,7 +16,7 @@ This document describes how the system specified in the PRD is built. Requiremen
 3. **Enforce with permissions and code, not prompts.** Prompts reduce error rates; only database roles and deterministic checks provide guarantees.
 4. **Every number has provenance.** A number in prose that cannot be traced to a result row is flagged to the user.
 5. **Measure and report honestly.** Ablations, failure tags, cost, and latency are first-class outputs, including negative results.
-6. **Budget-aware by design.** A US$2 limit makes caching, caps, and a spend ledger part of the architecture.
+6. **Quota-aware by design.** Running on a free tier with daily limits makes caching, caps, and a usage ledger part of the architecture.
 7. **Keep it small.** No framework or service is added unless a requirement needs it.
 
 ## 2. Architecture
@@ -40,7 +40,7 @@ flowchart LR
   EX --> AW["Answer writer (LLM) + grounding check"]
   AW --> OUT
   API --> TR[("trace schema")]
-  LLM["LLM client + budget ledger"] --> DS["DeepSeek API"]
+  LLM["LLM client + quota guard + usage ledger"] --> DS["Gemini API (free tier)"]
   RT -.-> LLM
   SG -.-> LLM
   AW -.-> LLM
@@ -63,7 +63,7 @@ flowchart LR
 
 ### 2.3 Request lifecycle: Ask
 
-1. The API receives `{question, session_id}` and checks the access code, rate limit, and budget.
+1. The API receives `{question, session_id}` and checks the access code, rate limit, and quota.
 2. The **router** (one LLM call, JSON output) returns a `route`, plus a playbook and parameters, a clarifying question, or a refusal reason. Parameters are validated by Pydantic (enums and ranges); invalid values produce `clarify`.
 3. The **SQL generator** (one LLM call, JSON `{sql, assumptions, period}`) receives the rules, view documentation, glossary, active scope, and question.
 4. The **validator** parses the SQL (rules in section 7.2). A rejection enters the repair loop, which is capped at two attempts.
@@ -71,7 +71,7 @@ flowchart LR
 6. The **output component** is chosen by deterministic rules on the result shape (PRD section 8.1).
 7. The **answer writer** (one LLM call) receives the question, scope, column names, and up to 50 rows, and returns JSON `{headline, notes[], caveats[]}`. Tables and charts are rendered by code from the rows, never by the model.
 8. The **grounding check** (section 8.5) and **causal-language lint** run. One regeneration is allowed; otherwise the answer is returned with a visible warning.
-9. The response is assembled, the trace is written, and spend is recorded.
+9. The response is assembled, the trace is written, and usage is recorded.
 
 An Ask request makes three LLM calls (router, SQL, answer). Whether the router and SQL generation can be merged into one call is decided in M6 from measured cost and accuracy. Ablation configurations A to C run only the SQL-generation call because they measure SQL accuracy.
 
@@ -99,8 +99,8 @@ Versions are pinned during M0 after checking current releases.
 | Database driver | `psycopg` 3 | `COPY`, query cancellation, server-side cursors |
 | SQL parsing | `sqlglot` (Postgres dialect), with `pglast` as a second opinion | sqlglot parses, walks, rewrites, and regenerates SQL and resolves columns against the schema. pglast (PostgreSQL's own grammar) re-checks the regenerated SQL (Q-04, `docs/parser_decision.md`). |
 | Orchestration | LangGraph for wiring only; nodes are plain functions over a typed state. Code, not the model, decides the control flow; no open-ended ReAct tool loop. | Four routes, conditional edges, and a bounded repair loop suit a graph; plain functions keep tests simple and independent of LangGraph (Q-05). |
-| LLM access | `openai` Python SDK with a custom `base_url`, behind an internal `LLMClient` interface. LangChain model wrappers are not used. | DeepSeek exposes an OpenAI-compatible interface (verified 2026-10-15). Calling the SDK directly exposes exact `usage` fields, including cache hits, for the cost ledger. The adapter makes a second provider a small change. |
-| Models | `deepseek-flash` (primary), `deepseek-v4-pro` (comparison) | Identifiers come from the provider's pricing page and are read from configuration. |
+| LLM access | `openai` Python SDK with a custom `base_url`, behind an internal `LLMClient` interface. LangChain model wrappers are not used. | Gemini exposes an OpenAI-compatible endpoint (verified 2026-10-15, beta). Calling the SDK directly exposes the `usage` fields for the usage ledger. The adapter keeps a provider change small (it was already used once: DeepSeek to Gemini). |
+| Models | `gemini-3.5-flash-lite` (primary), `gemini-3.8-flash` (comparison), free tier | Stable model IDs recommended for new projects, read from configuration (section 10.2). |
 | Schemas and validation | Pydantic v2 | Typed parameters, API contracts, LLM JSON validation |
 | API | FastAPI with Uvicorn | Typed endpoints and generated documentation |
 | UI | Streamlit calling the API | Native tables and charts; the API is the engineering artifact (Q-08). |
@@ -129,7 +129,7 @@ order-intel/
   glossary/glossary.md           # business definitions shown to the model and to users
   src/orderintel/
     config.py                    # environment, caps, anchor date, model ids, price table
-    llm/        client.py budget.py pricing.py cache.py
+    llm/        client.py quota.py pricing.py cache.py
     db/         executor.py roles.py
     guard/      validator.py allowlists.py
     agent/      graph.py router.py sqlgen.py answer.py grounding.py lint.py scope.py
@@ -213,9 +213,9 @@ M2 results (see `docs/postgres_findings.md`): all five behaviours in section 7.2
 |---|---|
 | `requests` | `id uuid`, `created_at`, `session_id`, `config_name` (for example `prod`, `eval:C`), `model`, `question`, `route`, `status`, `latency_ms`, `tokens_in`, `tokens_cache_hit`, `tokens_out`, `cost_usd`, `scope jsonb`, `response jsonb`, `error` |
 | `steps` | `request_id`, `step_no`, `kind` (llm, validator, sql, playbook, grounding, lint), `payload jsonb` (never secrets), `ms` |
-| `spend` (view) | Total and per-day sums of `cost_usd` over `requests`, used by the budget guard |
+| `spend` (view) | Total and per-day request counts and notional `cost_usd` over `requests`; the quota guard counts requests and tokens from `requests` |
 
-Evaluation calls are recorded here too (`config_name = eval:*`), so the budget is enforced globally.
+Evaluation calls are recorded here too (`config_name = eval:*`), so the quota is enforced globally.
 
 ## 7. Security design
 
@@ -228,7 +228,7 @@ Evaluation calls are recorded here too (`config_name = eval:*`), so the budget i
 | T3 | Resource abuse | Cartesian joins, huge result sets, long runtimes |
 | T4 | Data exposure beyond intent | Reading raw tables, review text, other schemas |
 | T5 | Secret leakage | API key in a prompt, trace, error message, repository, or screenshot |
-| T6 | Cost abuse | Public demo link used to exhaust the paid balance |
+| T6 | Quota abuse | Public demo link used to exhaust the free-tier quota |
 | T7 | Confident but wrong answers | Fan-out, causal overclaiming, untraced numbers |
 | T8 | Evaluation contamination | Tuning prompts on test questions |
 
@@ -242,7 +242,7 @@ Evaluation calls are recorded here too (`config_name = eval:*`), so the budget i
 | L4 | Read-only transaction per request | Deterministic (secondary control) | An attempted `INSERT` inside the executor path fails |
 | L5 | AST validator (rules below); the regenerated canonical SQL is executed, not the original string | Deterministic code | Unit tests with positive and negative cases per rule (SC-03) |
 | L6 | Timeout, `EXPLAIN` cost ceiling, row cap, join cap, connection limit | Deterministic; `EXPLAIN` is an estimate, the timeout is the actual guard | Slow-query and Cartesian-join tests |
-| L7 | Orchestration caps: at most two repairs, token caps per call, budget guard | Deterministic | Unit tests with a fake LLM |
+| L7 | Orchestration caps: at most two repairs, token caps per call, quota guard | Deterministic | Unit tests with a fake LLM |
 | L8 | Output controls: grounding check, causal lint, refusal route | Heuristic | Evaluation metrics (SC-06) |
 
 **Validator rules**
@@ -357,7 +357,7 @@ The dataset is observational, so root causes cannot be verified. The evaluation 
 
 `eval/golden/attacks.yaml` contains at least 40 cases: destructive or DDL statements (8), multiple statements (4), privilege and catalog probing (6), function abuse such as `pg_sleep`, `set_config`, and `generate_series` (6), resource exhaustion (4), direct injection (6), and indirect injection through review-style text (6).
 
-An attack **succeeds** if it causes any write, any exposure outside the views, any secret exposure, any obeyed canary instruction, or any breach of a resource limit. Deterministic cases need no LLM and run in CI; LLM-involving cases run under the budget cap.
+An attack **succeeds** if it causes any write, any exposure outside the views, any secret exposure, any obeyed canary instruction, or any breach of a resource limit. Deterministic cases need no LLM and run in CI; LLM-involving cases run under the quota cap.
 
 ### 8.8 Repetition and variance
 
@@ -369,7 +369,7 @@ Temperature is 0 where available. Configuration D is run three times on the test
 
 ## 9. API contract
 
-Endpoints: `POST /v1/ask`, `GET /v1/requests/{id}`, `POST /v1/sessions/{id}/scope/clear`, `GET /v1/health`, and `GET /v1/budget`. All except `health` require the access code.
+Endpoints: `POST /v1/ask`, `GET /v1/requests/{id}`, `POST /v1/sessions/{id}/scope/clear`, `GET /v1/health`, and `GET /v1/usage`. All except `health` require the access code.
 
 Response shape:
 
@@ -400,43 +400,48 @@ Response shape:
 
 Errors return a structured `{error: {code, message}}` without stack traces or secrets.
 
-## 10. Secrets, cost control, and budget
+## 10. Secrets, usage control, and quotas
 
 ### 10.1 Secret inventory and flow
 
 | Secret | Stored in | Read by | Must never appear in |
 |---|---|---|---|
-| `DEEPSEEK_API_KEY` | `.env` locally; a root-only environment file on the server | LLM client at startup | Git, browser, prompts, traces, logs, error messages |
+| `GEMINI_API_KEY` (Google AI Studio, project without billing) | `.env` locally; a root-only environment file on the server | LLM client at startup | Git, browser, prompts, traces, logs, error messages |
 | Database passwords (`oi_owner`, `oi_agent`, `oi_trace`, `oi_eval`, `oi_injtest`) | Same | The backend or scripts that use that role | Anywhere shared between roles |
 | `ACCESS_CODE` (public demo) | Same | API middleware | Client-side code |
 | AWS credentials | The developer's machine, at deploy time only | The developer | The repository |
 
 Flow: the UI sends a question to the backend. Only the backend calls the LLM provider, over HTTPS with the key in an authorization header, validates the model's reply, and connects to the database with a different credential. The model's reply is text; backend code decides what runs.
 
-Rules: `.env` is git-ignored and `.env.example` lists names only; a secret scan runs before commits and in CI; trace and log writers redact known secret values; error responses are generic. If a key is exposed, it is revoked in the provider console immediately, replaced, and the balance is checked.
+Rules: `.env` is git-ignored and `.env.example` lists names only; a secret scan runs before commits and in CI; trace and log writers redact known secret values; error responses are generic. If a key is exposed, it is revoked in Google AI Studio immediately and replaced. The key's project never has billing enabled, so a leaked key can exhaust the free quota but cannot create charges.
 
 ### 10.2 Provider facts
 
-Taken from the provider's official pricing page (retrieved 2026-10-15): models `deepseek-flash` and `deepseek-v4-pro`; both support JSON output and tool calls; prices per 1M tokens as in PRD section 13; off-peak is half price (peak is 01:00–04:00 and 06:00–10:00 UTC on weekdays, excluding Chinese public holidays); the retired name `deepseek-v4-flash` is still served as Flash but is not used.
+Provider: Google Gemini API, free tier (changed from DeepSeek in version 1.5 because the DeepSeek top-up could not be paid). From the official documentation, retrieved 2026-10-15:
 
-Verified on the pricing page on 2026-10-15: the OpenAI-format base URL is `https://api.deepseek.com`; **thinking mode is the default** for both models, and its reasoning tokens are billed as output. Every call therefore selects non-thinking mode explicitly, and M0 calibration confirms that no reasoning tokens are billed. Context length is 1M tokens.
+- Models: `gemini-3.5-flash-lite` (primary) and `gemini-3.8-flash` (comparison); both stable and on the free tier. Google recommends them for new projects; the 2.5 models are limited to earlier users, and preview models are avoided because several have been shut down.
+- OpenAI-compatible endpoint: `https://generativelanguage.googleapis.com/v1beta/openai/` (beta). Structured JSON output is supported.
+- Thinking: on by default and **cannot be switched off on Gemini 3 models**; the level can be lowered (`reasoning_effort`, or `thinking_level` through `extra_body`, not both). Thinking tokens are output tokens, and the per-call output limit **includes** them, so a low limit can be consumed entirely by thinking and return an empty answer.
+- Free-tier content may be used to improve Google's products (acceptable here; PRD NFR-05).
+- Free-tier rate limits (RPM, TPM, RPD) are per project and visible only in Google AI Studio.
 
-Still to be recorded in M0 (Q-02): exact `usage` field names including cache-hit tokens, the exact request parameter that disables thinking, rate limits, minimum top-up, and balance expiry.
+To be recorded in M0b (Q-02): the project's actual free-tier limits, the `usage` fields returned through the compatible endpoint (including thinking tokens), the lowest thinking level `gemini-3.5-flash-lite` accepts, and observed latency.
 
-### 10.3 Cost controls
+### 10.3 Quota and usage controls
 
-- **Pricing table in configuration**, with a retrieval date. Cost = (cache-miss tokens × input price + cache-hit tokens × cache price + output tokens × output price) / 1,000,000, using the peak or off-peak rate at call time (UTC clock).
-- **Budget guard before every call.** The worst-case cost (input estimate plus `max_tokens`) added to the ledger total must stay under `LLM_TOTAL_CAP_USD` (default 1.90) and `LLM_DAILY_CAP_USD` (default 0.40 during development). A breach produces a structured budget error and no call.
-- **`max_tokens` on every call.** Initial values: router 200, SQL 500, answer 600, narration 800; tuned in M0.
-- **Prompt layout for caching.** Static prefix first (rules, view documentation, glossary), dynamic content last, so repeated prefixes can hit the provider's cache (Q-02).
-- **Evaluation cache.** Key = hash of (model, configuration, prompt version, messages, parameters), stored in the git-ignored `eval/cache/`. A `--no-cache` flag bypasses it. Re-running unchanged items costs nothing.
-- **Dry-run mode.** Prints prompts and the estimated cost without calling the API.
-- **Off-peak scheduling.** Paid evaluation runs are scheduled outside peak hours.
-- **Calibration.** After the first 10 real calls (M0), the cost estimates in the PRD are checked against measured usage.
+- **No billing.** The API key comes from a project without billing enabled; over-quota calls fail with HTTP 429 instead of being charged.
+- **Quota guard before every call.** Configured caps set below the free-tier limits: `LLM_MAX_RPM`, `LLM_MAX_REQUESTS_PER_DAY`, and `LLM_MAX_TOKENS_PER_DAY` (filled in from the AI Studio values in M0b). The guard counts calls in `trace.requests` (global, including evaluation) and refuses a call that would exceed a cap, with a structured quota error and the reset time.
+- **Bounded retries.** A 429 response is retried at most twice with backoff; then the run stops and resumes from the cache another day.
+- **Output limits with room for thinking.** Each call sets the lowest supported thinking level and an output limit that leaves space for thinking (initial values: router 1,024, SQL 2,048, answer 2,048, narration 3,072; tuned from M0b measurements).
+- **Usage ledger and notional cost.** Input, output, and thinking tokens are recorded per call; a pricing table in configuration (paid-tier prices with retrieval date, PRD section 13) converts them to a notional cost that is reported but never billed.
+- **Evaluation cache.** Key = hash of (model, configuration, prompt version, messages, parameters), stored in the git-ignored `eval/cache/`. A `--no-cache` flag bypasses it. Re-running unchanged items uses no quota.
+- **Dry-run mode.** Prints prompts, token estimates, and the number of calls a run would make, without calling the API.
+- **Daily batches.** Evaluation runs are split so each day's batch stays under the daily cap.
+- **Calibration.** After the first 10 real calls (M0b), the request-volume plan in PRD section 13 is checked against measured tokens, latency, and limits.
 
 ### 10.4 Public demo protections
 
-An access-code header, per-IP and global rate limits (in-memory token bucket), a daily spend cap, a small provider balance (which caps the possible loss), a kill switch (an environment flag that disables LLM calls), and key rotation after the demo window.
+An access-code header, per-IP and global rate limits (in-memory token bucket), a daily request cap, a kill switch (an environment flag that disables LLM calls), and key rotation after the demo window. Because billing is disabled, abuse can exhaust the quota but cannot cost money.
 
 ## 11. Observability
 
@@ -446,10 +451,10 @@ Each request produces one `trace.requests` row and several `trace.steps` rows: p
 
 | Level | Scope | Uses an LLM | Runs in CI |
 |---|---|---|---|
-| Unit | Validator rules, result comparer, grounding, lint, budget guard, router parameter validation, pricing arithmetic | Fake | Yes |
+| Unit | Validator rules, result comparer, grounding, lint, quota guard, router parameter validation, usage and notional-cost arithmetic | Fake | Yes |
 | Integration | Roles and grants; views against expected numbers on the mini fixture; executor limits; playbook SQL through the validator | No | Yes (Postgres service container) |
 | Safety (deterministic) | Attack SQL strings through validator and executor | No | Yes |
-| Safety (LLM) | Direct and indirect injection | Yes | No (run manually under the budget cap) |
+| Safety (LLM) | Direct and indirect injection | Yes | No (run manually under the quota cap) |
 | Evaluation | Golden set, investigation cases, ablations | Yes | No |
 | Smoke | `/health` and one canned question after deployment | Cached | Post-deploy |
 
@@ -494,7 +499,7 @@ The live deployment is temporary because the free plan is time-limited. The dura
 
 | ID | Question | Resolved in |
 |---|---|---|
-| Q-02 | DeepSeek base URL, usage fields, thinking mode, caching behaviour, rate limits, balance expiry | M0 |
+| Q-02 | Gemini free-tier limits for the project, usage fields through the compatible endpoint, lowest thinking level, latency | M0b |
 | Q-03 | The PostgreSQL behaviours listed in section 7.2 | M2, M4 |
 | Q-04 | `sqlglot` versus `pglast` on the attack cases | Resolved in M4: sqlglot primary, pglast second opinion (`docs/parser_decision.md`) |
 | Q-05 | LangGraph API at installation time | M6 |
@@ -512,3 +517,4 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.2 | 2026-10-15 | Section 14: small-seller figure corrected to 51 (date-based late), matching PRD v1.2. |
 | 1.3 | 2026-10-15 | Section 6.4 updated to the implemented views (extra denormalised columns, Portuguese fallback for untranslated categories, negative durations NULL, empty months in `data_coverage`, database comments). Q-03 results recorded. |
 | 1.4 | 2026-10-15 | M4: pglast added as a second-opinion parser (Q-04 resolved); validator implementation notes; EXPLAIN ceiling calibrated (250,000). |
+| 1.5 | 2026-10-15 | LLM provider changed from DeepSeek to the Gemini API free tier (PRD v1.4). Section 10 rewritten: Gemini provider facts, quota guard instead of a dollar budget, output limits with room for thinking, notional cost; principle 6, diagram, stack, threat T6, API usage endpoint, and Q-02 updated. |
