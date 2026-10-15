@@ -1,0 +1,129 @@
+# Investigation cases (technical design, section 8.6). DRAFT in M3; finalised in M7.
+#
+# Expected values are labelled from the data BEFORE the playbooks exist, so the playbook is
+# checked against an independent expectation rather than against its own output.
+# Labels marked "to label" are completed by independent analysis on raw tables before any
+# narration is evaluated, and recorded with the query used.
+#
+# verdict: elevated | nothing_notable | not_applicable
+# Late-rate figures below come from tests/integration/test_semantic_layer.py (PRD Example 2).
+
+# ---------- late-delivery playbook: positive cases (6) ----------
+- id: inv_late_01
+  question: Why was March 2018 so bad for deliveries?
+  playbook: late_delivery_diagnosis
+  params: {period: "2018-03"}
+  expected_verdict: elevated
+  expected_top_driver: carrier_transit
+  notes: 19.0% late vs about 5.8% baseline; PRD Example 3 says transit +3.9 days, handling flat.
+- id: inv_late_02
+  question: What went wrong with deliveries in February 2018?
+  playbook: late_delivery_diagnosis
+  params: {period: "2018-02"}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: 14.1% late.
+- id: inv_late_03
+  question: Why were deliveries late in November 2017?
+  playbook: late_delivery_diagnosis
+  params: {period: "2017-11"}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: 12.4% late; Black Friday volume (1,176 orders on 2017-11-24).
+- id: inv_late_04
+  question: Why were deliveries to Rio de Janeiro so late in March 2018?
+  playbook: late_delivery_diagnosis
+  params: {period: "2018-03", state: RJ}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: PRD Example 3 - RJ 34.5% late (n=864) vs 10.5% baseline.
+- id: inv_late_05
+  question: Investigate late deliveries to Minas Gerais in March 2018.
+  playbook: late_delivery_diagnosis
+  params: {period: "2018-03", state: MG}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: PRD Example 3 - MG 20.4% (n=856) vs 3.3% baseline.
+- id: inv_late_06
+  question: Why did late deliveries rise in December 2017?
+  playbook: late_delivery_diagnosis
+  params: {period: "2017-12"}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: 7.5% late; borderline against the rule (baseline + 3 points and 1.5x baseline); the label is decided by computing the rule on raw tables.
+
+# ---------- low-review playbook: positive cases (4) ----------
+- id: inv_rev_01
+  question: Why did review scores drop in March 2018?
+  playbook: low_review_diagnosis
+  params: {period: "2018-03"}
+  expected_verdict: elevated
+  expected_top_driver: late_delivery
+  notes: Monthly average 3.75 (golden trend_11 reference); March 2018 is also the worst late month.
+- id: inv_rev_02
+  question: What caused the low review scores in February 2018?
+  playbook: low_review_diagnosis
+  params: {period: "2018-02"}
+  expected_verdict: elevated
+  expected_top_driver: to label
+  notes: Monthly average 3.83.
+- id: inv_rev_03
+  question: Why are customers in Rio de Janeiro giving low reviews in March 2018?
+  playbook: low_review_diagnosis
+  params: {period: "2018-03", state: RJ}
+  expected_verdict: to label
+  expected_top_driver: to label
+- id: inv_rev_04
+  question: Why did review scores fall in November 2017?
+  playbook: low_review_diagnosis
+  params: {period: "2017-11"}
+  expected_verdict: to label
+  expected_top_driver: to label
+
+# ---------- negative controls (3): must say "nothing notable" ----------
+- id: inv_neg_01
+  question: Why were deliveries so bad in July 2017?
+  playbook: late_delivery_diagnosis
+  params: {period: "2017-07"}
+  expected_verdict: nothing_notable
+  notes: 2.8% late, below the baseline. The question's premise is false.
+- id: inv_neg_02
+  question: Investigate the late deliveries in June 2018.
+  playbook: late_delivery_diagnosis
+  params: {period: "2018-06"}
+  expected_verdict: nothing_notable
+  notes: 1.2% late, the lowest month.
+- id: inv_neg_03
+  question: What went wrong with deliveries in May 2017?
+  playbook: late_delivery_diagnosis
+  params: {period: "2017-05"}
+  expected_verdict: nothing_notable
+  notes: 3.0% late.
+
+# ---------- no applicable playbook (2) ----------
+- id: inv_none_01
+  question: Why did revenue fall in June 2018?
+  playbook: null
+  expected_verdict: not_applicable
+  notes: No revenue playbook in v1; expected route answer (show the trend) or clarify, not a fabricated diagnosis.
+- id: inv_none_02
+  question: Why do customers prefer credit cards?
+  playbook: null
+  expected_verdict: not_applicable
+  notes: Not answerable from the data (motivation); expected refuse or clarify.
+
+# ---------- planted anomalies on the synthetic mini fixture (2; built in M7) ----------
+- id: inv_plant_01
+  fixture: mini_olist_planted_transit
+  playbook: late_delivery_diagnosis
+  params: {period: "fixture month", state: "fixture state"}
+  expected_verdict: elevated
+  expected_top_driver: carrier_transit
+  notes: +10 carrier transit days injected for one state in one month.
+- id: inv_plant_02
+  fixture: mini_olist_planted_handling
+  playbook: late_delivery_diagnosis
+  params: {period: "fixture month"}
+  expected_verdict: elevated
+  expected_top_driver: seller_handling
+  notes: +5 seller handling days injected for one seller; the seller concentration step must name it.

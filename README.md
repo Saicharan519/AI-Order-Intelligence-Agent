@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M2 (database roles and the semantic layer). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M3 (golden question set and scoring harness). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
@@ -70,6 +70,15 @@ Stop the database with `docker compose stop db`. `docker compose down` removes t
 .venv/Scripts/python -m ruff check .
 .venv/Scripts/python scripts/check_secrets.py --all
 ```
+
+Evaluation harness (no LLM, no cost):
+
+```bash
+.venv/Scripts/python eval/run_eval.py --refs-only --review eval/golden/REVIEW.md
+.venv/Scripts/python eval/crosscheck.py
+```
+
+Expected: `All references valid.` and `27 of 27 references agree with the pandas implementation`.
 
 Paid LLM tests are marked `paid` and never run by default. Integration tests (marked `integration`) need the running database and the CSVs; they are skipped automatically otherwise. Run only fast unit tests with `-m "not integration"`.
 

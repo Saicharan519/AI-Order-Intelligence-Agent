@@ -2,7 +2,37 @@
 
 ## Current milestone
 
-**M2 complete (pending commit approval).** Next: M3 (golden question set and evaluation harness). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+**M3 complete.** Questions reviewed and approved by the owner; test split frozen (SHA-256 `c8262a28…`). Next: M4 (validator and executor). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+
+## 2026-10-15 — M3: golden set and evaluation harness
+
+**Completed**
+- `eval/golden/questions.yaml`: 60 questions (lookup 8, aggregate 14, trend 12, trap 14, ambiguous 6, out-of-scope 6), 40 dev / 20 test, every category in the test split. References on raw tables; 6 accepted alternatives for legitimately different answers or shapes. Trap questions chosen only where the naive answer differs measurably (e.g. Nov 2017 revenue 1,003,862 vs 1,172,639 from payments).
+- `src/orderintel/evaluation/compare.py`: execution-accuracy comparer (exact counts; display-rounding tolerance 0.051 or 0.01% relative; names and column order ignored; multiset or ordered rows; extra columns opt-in).
+- `src/orderintel/evaluation/golden.py`: schema validation (pydantic), loader, test-split fingerprint.
+- `eval/run_eval.py --refs-only`: validates structure and runs all references as read-only `oi_eval`; writes `eval/golden/REVIEW.md` for the owner's review; `--freeze` records the fingerprint.
+- `eval/crosscheck.py`: 27 references re-implemented in pandas.
+- Drafts: `eval/golden/attacks.yaml` (40 cases in 7 categories) and `eval/golden/investigation.yaml` (15 cases + 2 planted anomalies; labels marked "to label" are completed by independent analysis before M7 narration runs).
+
+**Tests and checks (actually run)**
+
+| Check | Result |
+|---|---|
+| Golden structure (category and split counts) | Pass |
+| 66 reference queries (60 items incl. alternatives) as `oi_eval` | All run, non-empty, non-trivial, < 2 s |
+| pandas cross-check | 27 of 27 agree |
+| Negative controls: four known-wrong trap answers | 4 of 4 rejected (incl. a 0.94% fan-out error) |
+| Comparer unit tests | 17 passed |
+| Golden-schema unit tests (tamper detection: any test-item edit changes the fingerprint) | 5 passed |
+| Full `pytest` after freeze | 216 passed, 0 skipped |
+| `ruff check .` | Pass |
+
+**Decisions**
+- The test split was frozen only after the owner's review (freezing first would make the review meaningless). Fingerprint: `c8262a280a0dc64fe5ab292784fd20785df4a9d03caa75d72c84a05fbbe62a6a` in `eval/golden/test_split.sha256`.
+- Library code lives in `src/orderintel/evaluation/` (importable, tested); `eval/` holds data files and CLI scripts.
+- Booleans are not equal to labels: a model answering "late"/"on time" where the reference returns true/false fails. Known strictness; reported per failure tag in M5.
+
+**API cost incurred:** $0.00
 
 ## 2026-10-15 — M2: roles and the semantic layer
 
@@ -124,6 +154,6 @@
 **API cost incurred:** $0.00
 
 ## Next steps
-1. Owner approves the M2 commit.
-2. M3: golden set (60 questions, references on raw tables), result comparer, refs-only run, pandas cross-check, attack and investigation drafts, test-split freeze. Owner reviews the questions before the freeze.
+1. M4: validator (VR-01 to VR-09), guarded executor, allow-lists generated from the database, parser comparison (Q-04).
+2. M0b (before M5): owner adds the DeepSeek key to `.env`; calibration after approval.
 3. M0b (any time before M5): owner creates a DeepSeek key in `.env`; calibration of about 10 calls (< $0.01) after approval.
