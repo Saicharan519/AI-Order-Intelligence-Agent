@@ -1,6 +1,7 @@
 # Runtime dependencies, pinned (versions checked on PyPI 2026-10-15).
 psycopg[binary]==3.3.6      # PostgreSQL driver: COPY, cancellation, server-side cursors
 sqlglot==30.23.0            # SQL parser for the validator (Postgres dialect)
+pglast==8.6                 # PostgreSQL's own parser (libpg_query): validator second opinion
 pydantic==2.14.1            # typed schemas, LLM JSON validation
 pydantic-settings==2.16.0   # configuration from environment / .env
 openai==3.31.0              # OpenAI-compatible client, pointed at DeepSeek

@@ -1,0 +1,283 @@
+{
+  "schema": "analytics",
+  "views": {
+    "data_coverage": {
+      "columns": {
+        "in_analysis_window": {
+          "comment": "Month between January 2017 and August 2018.",
+          "type": "boolean"
+        },
+        "is_partial": {
+          "comment": "Fewer than 500 orders in the month: results need a warning.",
+          "type": "boolean"
+        },
+        "month": {
+          "comment": "",
+          "type": "date"
+        },
+        "orders_count": {
+          "comment": "",
+          "type": "integer"
+        }
+      },
+      "comment": "One row per month: order volume and partial-period flag."
+    },
+    "order_items": {
+      "columns": {
+        "category": {
+          "comment": "English category; unknown if missing; Portuguese name if untranslated.",
+          "type": "text"
+        },
+        "customer_state": {
+          "comment": "",
+          "type": "text"
+        },
+        "customer_unique_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "freight_value": {
+          "comment": "",
+          "type": "numeric(12,2)"
+        },
+        "is_late": {
+          "comment": "",
+          "type": "boolean"
+        },
+        "is_sale": {
+          "comment": "",
+          "type": "boolean"
+        },
+        "order_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "order_item_id": {
+          "comment": "",
+          "type": "smallint"
+        },
+        "order_status": {
+          "comment": "",
+          "type": "text"
+        },
+        "price": {
+          "comment": "Item price, excluding freight. Revenue = sum(price) where is_sale.",
+          "type": "numeric(12,2)"
+        },
+        "product_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "product_weight_g": {
+          "comment": "",
+          "type": "integer"
+        },
+        "purchase_date": {
+          "comment": "",
+          "type": "date"
+        },
+        "purchase_month": {
+          "comment": "",
+          "type": "date"
+        },
+        "seller_city": {
+          "comment": "",
+          "type": "text"
+        },
+        "seller_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "seller_state": {
+          "comment": "",
+          "type": "text"
+        }
+      },
+      "comment": "One row per order item, with order, customer and seller attributes."
+    },
+    "orders": {
+      "columns": {
+        "approved_ts": {
+          "comment": "",
+          "type": "timestamp without time zone"
+        },
+        "carrier_transit_days": {
+          "comment": "Customer delivery minus carrier hand-off, in days. NULL if missing or negative.",
+          "type": "numeric"
+        },
+        "carrier_ts": {
+          "comment": "",
+          "type": "timestamp without time zone"
+        },
+        "customer_city": {
+          "comment": "",
+          "type": "text"
+        },
+        "customer_state": {
+          "comment": "",
+          "type": "text"
+        },
+        "customer_unique_id": {
+          "comment": "The person. Use this, not a per-order id, to count customers.",
+          "type": "text"
+        },
+        "days_late": {
+          "comment": "Delivered date minus estimated date; negative = early. NULL if not delivered.",
+          "type": "integer"
+        },
+        "delivered_ts": {
+          "comment": "",
+          "type": "timestamp without time zone"
+        },
+        "delivery_days": {
+          "comment": "Customer delivery minus purchase, in days.",
+          "type": "numeric"
+        },
+        "estimated_delivery_date": {
+          "comment": "",
+          "type": "date"
+        },
+        "freight_total": {
+          "comment": "Sum of item freight; never part of revenue.",
+          "type": "numeric"
+        },
+        "has_review_comment": {
+          "comment": "",
+          "type": "boolean"
+        },
+        "is_delivered": {
+          "comment": "Status delivered and a customer delivery timestamp exists.",
+          "type": "boolean"
+        },
+        "is_late": {
+          "comment": "Delivered date later than estimated date (dates, not timestamps). NULL if not delivered.",
+          "type": "boolean"
+        },
+        "is_sale": {
+          "comment": "True unless status is canceled or unavailable. Revenue counts sales only.",
+          "type": "boolean"
+        },
+        "item_count": {
+          "comment": "",
+          "type": "integer"
+        },
+        "items_revenue": {
+          "comment": "Sum of item prices, excluding freight; 0 if the order has no items.",
+          "type": "numeric"
+        },
+        "order_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "order_status": {
+          "comment": "",
+          "type": "text"
+        },
+        "payment_total": {
+          "comment": "Sum of payments; NULL if the order has no payment row.",
+          "type": "numeric"
+        },
+        "promised_days": {
+          "comment": "Estimated delivery date minus purchase, in days.",
+          "type": "numeric"
+        },
+        "purchase_date": {
+          "comment": "",
+          "type": "date"
+        },
+        "purchase_month": {
+          "comment": "First day of the purchase month (order month).",
+          "type": "date"
+        },
+        "purchase_ts": {
+          "comment": "",
+          "type": "timestamp without time zone"
+        },
+        "review_score": {
+          "comment": "Score (1-5) of the latest answered review; NULL if not reviewed.",
+          "type": "smallint"
+        },
+        "seller_count": {
+          "comment": "Distinct sellers in the order; >1 means a multi-seller order.",
+          "type": "integer"
+        },
+        "seller_handling_days": {
+          "comment": "Carrier hand-off minus purchase, in days. NULL if missing or negative.",
+          "type": "numeric"
+        }
+      },
+      "comment": "One row per order. Business definitions applied; see glossary."
+    },
+    "payments": {
+      "columns": {
+        "installments_max": {
+          "comment": "",
+          "type": "integer"
+        },
+        "order_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "payment_count": {
+          "comment": "",
+          "type": "integer"
+        },
+        "payment_total": {
+          "comment": "",
+          "type": "numeric"
+        },
+        "payment_types": {
+          "comment": "Distinct payment types joined with +, e.g. credit_card+voucher.",
+          "type": "text"
+        },
+        "primary_payment_type": {
+          "comment": "Payment type of the largest payment row.",
+          "type": "text"
+        }
+      },
+      "comment": "One row per order that has payments. Safe to join to orders or items."
+    },
+    "reviews": {
+      "columns": {
+        "has_comment": {
+          "comment": "",
+          "type": "boolean"
+        },
+        "order_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "review_answer_ts": {
+          "comment": "",
+          "type": "timestamp without time zone"
+        },
+        "review_created_date": {
+          "comment": "",
+          "type": "date"
+        },
+        "review_score": {
+          "comment": "",
+          "type": "smallint"
+        }
+      },
+      "comment": "One row per reviewed order: the latest answered review. No review text."
+    },
+    "sellers": {
+      "columns": {
+        "seller_city": {
+          "comment": "",
+          "type": "text"
+        },
+        "seller_id": {
+          "comment": "",
+          "type": "text"
+        },
+        "seller_state": {
+          "comment": "",
+          "type": "text"
+        }
+      },
+      "comment": "One row per seller."
+    }
+  }
+}
