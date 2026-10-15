@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.1 |
+| Version | 1.2 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -479,7 +479,7 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | Fixed playbooks for investigation | Free exploration with generated SQL | Reliable, checkable findings; the LLM still routes, parameterises, and narrates |
 | Findings computed in code | Findings computed by the model | Removes arithmetic hallucination |
 | Late defined by date comparison | Timestamp comparison | The estimate is a date at midnight; timestamps would mark 1,292 same-day deliveries as late (8.11% versus 6.77%) |
-| Minimum 30 orders for rankings | No minimum | 57 sellers show a 100% late rate with three or fewer orders |
+| Minimum 30 orders for rankings | No minimum | 51 sellers with one to three delivered orders show a 100% late rate |
 | Geolocation not loaded | Load all nine tables | One million rows, non-unique zip codes, and no v1 question needs it |
 | Grounding by number extraction | Structured claims returned by the model | Cheaper to implement; revisit if false positives are high |
 | Custom trace tables | Hosted tracing service | No extra service or key |
@@ -506,3 +506,4 @@ The live deployment is temporary because the free plan is time-limited. The dura
 |---|---|---|
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Ablations A to E measure SQL generation only (grounding removed from D; routing and faithfulness measured separately). LangGraph confirmed as wiring only, with direct SDK calls instead of LangChain wrappers. Recorded verified provider facts, including thinking mode on by default. |
+| 1.2 | 2026-10-15 | Section 14: small-seller figure corrected to 51 (date-based late), matching PRD v1.2. |

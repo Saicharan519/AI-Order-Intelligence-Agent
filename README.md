@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M0a (local setup). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M1 (data loaded and verified). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
@@ -41,6 +41,15 @@ Run from the project root (the folder containing this README), in Git Bash.
    docker compose ps
    ```
 
+5. Download the dataset: from https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce (Kaggle login required), extract the 9 CSV files directly into `data/raw/` (licence: CC BY-NC-SA 4.0; see [docs/data_notes.md](docs/data_notes.md) for file checksums).
+6. Create the tables and load the data:
+   ```bash
+   .venv/Scripts/python scripts/migrate.py
+   .venv/Scripts/python scripts/load_data.py
+   .venv/Scripts/python scripts/check_counts.py
+   ```
+   Expected: the loader prints eight tables with `ok` and `Loaded 550,759 rows`; the checker ends with `required checks failed: 0; PRD figures differing: 0`. Both scripts are safe to re-run: migrations skip what is already applied, and the loader replaces the data atomically.
+
 Stop the database with `docker compose stop db`. `docker compose down` removes the container but keeps the data volume; `docker compose down -v` also deletes the data.
 
 ## Tests and checks
@@ -51,7 +60,7 @@ Stop the database with `docker compose stop db`. `docker compose down` removes t
 .venv/Scripts/python scripts/check_secrets.py --all
 ```
 
-Paid LLM tests are marked `paid` and never run by default.
+Paid LLM tests are marked `paid` and never run by default. Integration tests (marked `integration`) need the running database and the CSVs; they are skipped automatically otherwise. Run only fast unit tests with `-m "not integration"`.
 
 ## Troubleshooting
 
@@ -61,6 +70,9 @@ Paid LLM tests are marked `paid` and never run by default.
 | `set POSTGRES_PASSWORD in .env` | `.env` is missing or the value is empty. See step 1. |
 | Port 5432 already in use | Another PostgreSQL is running. Set `POSTGRES_PORT=5433` in `.env`. |
 | `Permission denied` inside `.venv` | OneDrive sync can lock files. Pause sync or recreate the venv outside the project folder. |
+| `LOAD FAILED ... missing files` | A CSV is not directly in `data/raw/` (often extracted into a subfolder). Move the 9 files up one level. |
+| `LOAD FAILED ... row counts do not match` | The CSV differs from the expected version. Compare checksums with `docs/data_notes.md`. Nothing was changed in the database. |
+| `password authentication failed for user "oi_owner"` | `.env` password changed after roles were created. Re-run `scripts/migrate.py`, which resets role passwords from `.env`. |
 | Secret check fails | It names the file, line, and rule (never the value). Move the secret into `.env`. If it was ever committed, rotate it. |
 
 ## Security notes

@@ -2,7 +2,45 @@
 
 ## Current milestone
 
-**M0a complete (pending commit approval).** Next: M1 (data load) once the Olist CSVs are in `data/raw/`. M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+**M1 complete (pending commit approval).** Next: M2 (database roles and the semantic layer). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+
+## 2026-10-15 — M1: data load
+
+**Completed**
+- Olist CSVs placed in `data/raw/` by the owner; licence CC BY-NC-SA 4.0 recorded; SHA-256 checksums recorded (Q-01 resolved: files are not redistributed).
+- `scripts/migrate.py`: creates `oi_owner` (NOSUPERUSER, NOCREATEDB, NOCREATEROLE) with its password from `.env`; revokes PUBLIC access to the database and `public` schema; applies numbered SQL migrations as `oi_owner`, tracked with checksums in `meta.schema_migrations`.
+- Migration `001_raw_schema.sql`: eight typed `raw.*` tables (timestamps, `numeric(12,2)` money, `smallint` scores, text zip codes, surrogate key for reviews).
+- `scripts/load_data.py`: atomic, idempotent load (truncate + reload in one transaction), CSV parsed in Python, streamed with COPY into staging, cast into typed tables, header and row-count verification.
+- `scripts/check_counts.py`: 49 checks; reproduces every dataset figure in PRD sections 5.2–5.3 on raw tables; writes `docs/data_profile.md`.
+
+**Files created:** `src/orderintel/config.py`, `src/orderintel/db/{__init__,connect}.py`, `db/migrations/001_raw_schema.sql`, `scripts/{migrate,load_data,check_counts}.py`, `tests/integration/test_load_data.py`, `tests/unit/test_check_counts.py`, `docs/data_notes.md`, `docs/data_profile.md`.
+**Files modified:** `README.md` (data steps, troubleshooting), `docs/PRD.md` and `docs/TECHNICAL_DESIGN.md` (v1.2, small-seller figure), `docs/progress.md`.
+
+**Tests and checks (actually run)**
+
+| Check | Result |
+|---|---|
+| Migrations, first run and re-run | Applied, then skipped; all tables owned by `oi_owner` |
+| Load | 550,759 rows in 6.2 s; all 8 row counts match |
+| Required checks (null counts, midnight estimate) | 6 of 6 pass |
+| PRD figure checks | All match after correcting 57 → 51 (see below) |
+| `pytest` | 19 passed (10 secret-scanner unit, 3 profile unit, 6 integration) |
+| Integration: idempotency | Two loads give identical counts, `sum(price)` 13,591,643.70, and review surrogate keys |
+| Integration: corrupted price value | Load fails naming the table and type; database unchanged |
+| Integration: wrong header / missing file | Rejected before any change |
+| `ruff check .` | Passed |
+| Secret scan, all files | Passed (32 files) |
+
+**Issues found and fixed**
+- PRD/technical design said 57 small sellers have a 100% late rate; that is the timestamp-based count. Under the project's date-based definition it is 51. Corrected (docs v1.2).
+- `check_counts.py` initially compared PostgreSQL `Decimal` values exactly against rounded figures, reporting 9 false differences. Fixed (values normalised before comparison) with a regression test.
+
+**Known issues / decisions**
+- Raw tables intentionally have no foreign keys; orphan counts are measured instead (all 0).
+- 775 orders have no items; 1 order has no payment row. To be handled in the M2 views.
+- Integration tests reload the development database (safe: the load is idempotent and atomic) and take about 50 s.
+
+**API cost incurred:** $0.00
 
 ## 2026-10-15 — M0a: local environment (free)
 
@@ -44,6 +82,6 @@
 **API cost incurred:** $0.00
 
 ## Next steps
-1. Owner reviews and approves the initial commit.
-2. M1: owner downloads the Olist dataset into `data/raw/`; then typed raw tables, loader, and count checks.
+1. Owner approves the M1 commit.
+2. M2: remaining four roles and grants, glossary, six `analytics` views, permission tests (SC-01), PostgreSQL behaviour findings (Q-03), numeric acceptance tests, mini fixture for CI.
 3. M0b (any time before M5): owner creates a DeepSeek key in `.env`; calibration of about 10 calls (< $0.01) after approval.

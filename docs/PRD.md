@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.1 |
+| Version | 1.2 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -97,7 +97,7 @@ All dataset figures in this document (here and in section 8.3) are provisional u
 | Undelivered orders | 2,965 orders have no customer delivery date (2,957 non-delivered orders plus 8 "delivered" orders); 6 non-delivered orders have one. 2,963 orders are not in `delivered` status. | Late is defined only for delivered orders with a delivery date. |
 | Duplicate reviews | 814 repeated `review_id` rows; 547 orders have more than one review; about 5% of reviews pre-date the recorded delivery date. | `reviews` view: latest answered review per order. |
 | Category gaps | 610 products have no category; 2 categories have no English translation. | Left joins, with `unknown` as the label. |
-| Small sellers | The median seller has 6 orders; 1,301 of 3,095 sellers have fewer than 5; 57 sellers show a 100% late rate with 3 or fewer orders. | Ranking eligibility requires at least 30 orders (634 sellers, 76.8% of revenue). |
+| Small sellers | The median seller has 6 orders; 1,301 of 3,095 sellers have fewer than 5; 51 sellers with 1 to 3 delivered orders show a 100% late rate (late by date; the timestamp comparison would give 57). | Ranking eligibility requires at least 30 orders (634 sellers, 76.8% of revenue). |
 | Multi-seller orders | 1,278 orders involve more than one seller. | Order-level outcomes are never attributed to a single seller without stating so. |
 | Sparse months | See section 5.2. | Partial-period warnings from a coverage view. |
 | Untyped source | All CSV fields are text. | Typed tables created at load time. |
@@ -391,3 +391,4 @@ Seller-scoped mode with row-level security, additional playbooks (seller scoreca
 |---|---|---|
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Corrected the undelivered-order count (2,965 without a delivery date, not 2,963). Execution accuracy scored on answerable items with confidence intervals; out-of-scope items scored as routing only. Added non-thinking-mode requirement (verified provider default). Marked dataset figures provisional until reproduced. |
+| 1.2 | 2026-10-15 | M1 reproduction of section 5 figures with our own SQL (see `docs/data_profile.md`): all match except the small-seller figure, which is 51 under the date-based definition of late (57 was the timestamp-based count). Reviews created before the delivery date: 5.3% ("about 5%" confirmed). |
