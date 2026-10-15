@@ -25,27 +25,77 @@ from orderintel.db.connect import connect_owner, connect_superuser
 MIGRATIONS_DIR = PROJECT_ROOT / "db" / "migrations"
 
 # Every role: no superuser, cannot create databases or roles (technical design, 6.3).
-ROLE_ATTRS = "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT"
+ROLE_ATTRS = "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
+
+# name: (settings attribute holding the password, connection limit, database privileges,
+#        role-level defaults). Object grants (schemas, views, tables) live in the SQL
+#        migrations; database-level grants and role defaults need the superuser, so they are here.
+# Role defaults are a convenience, not a guarantee: a session can change most of them
+# (see docs/postgres_findings.md). temp_file_limit is the exception: only a superuser can set it.
+ROLES: dict[str, tuple[str, int, str, dict[str, str]]] = {
+    "oi_owner": ("oi_owner_password", 10, "CONNECT, CREATE, TEMPORARY", {}),
+    "oi_agent": (
+        "oi_agent_password",
+        5,
+        "CONNECT",
+        {
+            "statement_timeout": "8s",
+            "idle_in_transaction_session_timeout": "15s",
+            "default_transaction_read_only": "on",
+            "search_path": "analytics",
+            "temp_file_limit": "256MB",
+        },
+    ),
+    "oi_trace": ("oi_trace_password", 5, "CONNECT", {"statement_timeout": "5s"}),
+    "oi_eval": (
+        "oi_eval_password",
+        3,
+        "CONNECT",
+        {
+            "statement_timeout": "30s",
+            "default_transaction_read_only": "on",
+            "temp_file_limit": "1GB",
+        },
+    ),
+    "oi_injtest": (
+        "oi_injtest_password",
+        2,
+        "CONNECT",
+        {"statement_timeout": "8s", "default_transaction_read_only": "on"},
+    ),
+}
 
 
 def ensure_roles() -> None:
     s = get_settings()
     db = sql.Identifier(s.postgres_db)
     with connect_superuser(s, autocommit=True) as conn:
-        exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = 'oi_owner'").fetchone()
-        verb = "ALTER" if exists else "CREATE"
-        conn.execute(
-            sql.SQL(f"{verb} ROLE oi_owner WITH {ROLE_ATTRS} PASSWORD {{}}").format(  # noqa: S608
-                sql.Literal(s.oi_owner_password.get_secret_value())
-            )
-        )
         # Access is by explicit grant only: remove the default PUBLIC privileges.
         conn.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(db))
         conn.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
-        conn.execute(
-            sql.SQL("GRANT CONNECT, CREATE, TEMPORARY ON DATABASE {} TO oi_owner").format(db)
-        )
-    print(f"roles: oi_owner {'updated' if exists else 'created'}")
+
+        for name, (pw_attr, conn_limit, db_privs, defaults) in ROLES.items():
+            role = sql.Identifier(name)
+            exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,)).fetchone()
+            verb = sql.SQL("ALTER" if exists else "CREATE")
+            password = getattr(s, pw_attr).get_secret_value()
+            conn.execute(
+                sql.SQL("{} ROLE {} WITH {} CONNECTION LIMIT {} PASSWORD {}").format(
+                    verb, role, sql.SQL(ROLE_ATTRS), sql.Literal(conn_limit), sql.Literal(password)
+                )
+            )
+            conn.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM {}").format(db, role))
+            conn.execute(
+                sql.SQL("GRANT {} ON DATABASE {} TO {}").format(sql.SQL(db_privs), db, role)
+            )
+            conn.execute(sql.SQL("ALTER ROLE {} RESET ALL").format(role))
+            for param, value in defaults.items():
+                conn.execute(
+                    sql.SQL("ALTER ROLE {} SET {} = {}").format(
+                        role, sql.Identifier(param), sql.Literal(value)
+                    )
+                )
+            print(f"roles: {name} {'updated' if exists else 'created'}")
 
 
 def apply_migrations() -> None:

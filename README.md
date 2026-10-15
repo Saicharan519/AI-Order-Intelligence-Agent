@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M1 (data loaded and verified). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M2 (database roles and the semantic layer). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
@@ -48,7 +48,18 @@ Run from the project root (the folder containing this README), in Git Bash.
    .venv/Scripts/python scripts/load_data.py
    .venv/Scripts/python scripts/check_counts.py
    ```
-   Expected: the loader prints eight tables with `ok` and `Loaded 550,759 rows`; the checker ends with `required checks failed: 0; PRD figures differing: 0`. Both scripts are safe to re-run: migrations skip what is already applied, and the loader replaces the data atomically.
+   Expected: `migrate.py` prints five roles (`oi_owner`, `oi_agent`, `oi_trace`, `oi_eval`, `oi_injtest`) and applies three migrations (raw tables, analytics views, trace tables); the loader prints eight tables with `ok` and `Loaded 550,759 rows`; the checker ends with `required checks failed: 0; PRD figures differing: 0`. All three are safe to re-run: migrations skip what is already applied and reset role passwords and limits from `.env`, and the loader replaces the data atomically.
+
+## Database layout
+
+| Schema | Contents | Who can read it |
+|---|---|---|
+| `raw` | Typed copies of the eight source CSVs | `oi_owner`, `oi_eval` |
+| `analytics` | Six curated views with the business definitions applied ([glossary](glossary/glossary.md)) | `oi_agent`, `oi_eval` |
+| `trace` | Request traces and the LLM spend ledger | `oi_trace` |
+| `meta` | Applied migrations | `oi_owner` |
+
+`oi_agent`, the only role that will run model-written SQL, can read the six views and nothing else; 38 attack statements are tested to fail by permissions alone. See [docs/postgres_findings.md](docs/postgres_findings.md).
 
 Stop the database with `docker compose stop db`. `docker compose down` removes the container but keeps the data volume; `docker compose down -v` also deletes the data.
 

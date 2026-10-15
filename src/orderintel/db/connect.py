@@ -33,3 +33,21 @@ def connect_owner(settings: Settings | None = None, **kwargs) -> psycopg.Connect
     """oi_owner: owns all objects; used by migrations and the loader only."""
     s = settings or get_settings()
     return _connect("oi_owner", s.oi_owner_password.get_secret_value(), s, **kwargs)
+
+
+def connect_agent(settings: Settings | None = None, **kwargs) -> psycopg.Connection:
+    """oi_agent: SELECT on analytics views only. The only role that runs model-written SQL."""
+    s = settings or get_settings()
+    return _connect("oi_agent", s.oi_agent_password.get_secret_value(), s, **kwargs)
+
+
+def connect_trace(settings: Settings | None = None, **kwargs) -> psycopg.Connection:
+    """oi_trace: writes trace tables; cannot read business data."""
+    s = settings or get_settings()
+    return _connect("oi_trace", s.oi_trace_password.get_secret_value(), s, **kwargs)
+
+
+def connect_eval(settings: Settings | None = None, **kwargs) -> psycopg.Connection:
+    """oi_eval: read-only on raw and analytics; evaluation tooling only."""
+    s = settings or get_settings()
+    return _connect("oi_eval", s.oi_eval_password.get_secret_value(), s, **kwargs)

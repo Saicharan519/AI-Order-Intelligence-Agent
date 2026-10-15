@@ -2,7 +2,49 @@
 
 ## Current milestone
 
-**M1 complete (pending commit approval).** Next: M2 (database roles and the semantic layer). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+**M2 complete (pending commit approval).** Next: M3 (golden question set and evaluation harness). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+
+## 2026-10-15 — M2: roles and the semantic layer
+
+**Completed**
+- Roles `oi_agent`, `oi_trace`, `oi_eval`, `oi_injtest` (plus `oi_owner`): no superuser/createdb/createrole/bypassrls/replication; separate passwords; connection limits; role defaults (agent: 8 s timeout, read-only, `search_path=analytics`, 256 MB temp files). PUBLIC database and `public` schema privileges revoked.
+- `glossary/glossary.md` from PRD section 6, with where each definition is implemented.
+- Migration `002_analytics_views.sql`: six views (`orders`, `order_items`, `payments`, `reviews`, `sellers`, `data_coverage`) with database comments; grants to `oi_agent` and `oi_eval`.
+- Migration `003_trace_schema.sql`: `trace.requests`, `trace.steps`, `trace.spend`; grants to `oi_trace` only.
+- Permission suite: 38 must-fail statements run in two modes (role defaults; read-only switched off) plus catalog, column, and other-role checks.
+- Q-03 resolved: `docs/postgres_findings.md` and `tests/integration/test_postgres_findings.py`.
+- Numeric acceptance through the views as `oi_agent`.
+
+**Files created:** `db/migrations/002_analytics_views.sql`, `db/migrations/003_trace_schema.sql`, `glossary/glossary.md`, `docs/postgres_findings.md`, `tests/integration/{agent_attacks,test_permissions,test_postgres_findings,test_semantic_layer}.py`.
+**Files modified:** `scripts/migrate.py` (all roles), `src/orderintel/config.py`, `src/orderintel/db/connect.py` (per-role connections), `scripts/check_counts.py` (LF output), `README.md`, `docs/PRD.md` v1.3, `docs/TECHNICAL_DESIGN.md` v1.3, `docs/IMPLEMENTATION_PLAN.md` v1.2, `docs/data_profile.md` (regenerated).
+
+**Tests and checks (actually run)**
+
+| Check | Result |
+|---|---|
+| Full `pytest` | 132 passed |
+| SC-01: 38 attack statements as `oi_agent`, role defaults | 38 of 38 fail |
+| SC-01: same, read-only switched off by the session | 38 of 38 fail with 42501 (permission) |
+| Agent can read each view; sees exactly six relations; no review text column | Passed |
+| `oi_trace` cannot read business data; `oi_eval` cannot write or read traces | Passed |
+| Q-03 behaviours (11 tests) | All five design assumptions confirmed |
+| PRD Example 1 (top 5 categories 2017) via views | Exact match (revenue, share, orders) |
+| PRD Example 2 (20 monthly late rates) via views | Exact match |
+| PRD Example 3 headline (1,328 of 7,003) | Exact match |
+| Views reproduce M1 raw figures (96,470 delivered, 6,534 late, 13,591,643.70 revenue, no fan-out, 6,108,492.27 for 2017, 96,096 people, 1,278 multi-seller) | Passed |
+| `ruff check .` and secret scan | Passed |
+
+**Key findings**
+- With role defaults, 15 attacks were blocked only by read-only mode; the agent can switch read-only off and its timeout off via `set_config` in a `SELECT`. Grants are the real wall; the validator and executor (M4) must add the rest.
+- The agent can see raw table and column names in the catalogs (not data).
+
+**Design deviations (recorded in docs v1.3)**
+- Untranslated categories keep their Portuguese names instead of `unknown`.
+- Negative stage durations (166 handling, 23 transit) are NULL.
+- `data_coverage` includes the empty month 2016-11 and flags it partial.
+- Mini fixture deferred to M7/M10.
+
+**API cost incurred:** $0.00
 
 ## 2026-10-15 — M1: data load
 
@@ -82,6 +124,6 @@
 **API cost incurred:** $0.00
 
 ## Next steps
-1. Owner approves the M1 commit.
-2. M2: remaining four roles and grants, glossary, six `analytics` views, permission tests (SC-01), PostgreSQL behaviour findings (Q-03), numeric acceptance tests, mini fixture for CI.
+1. Owner approves the M2 commit.
+2. M3: golden set (60 questions, references on raw tables), result comparer, refs-only run, pandas cross-check, attack and investigation drafts, test-split freeze. Owner reviews the questions before the freeze.
 3. M0b (any time before M5): owner creates a DeepSeek key in `.env`; calibration of about 10 calls (< $0.01) after approval.

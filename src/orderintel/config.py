@@ -23,7 +23,11 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "orderintel"
     postgres_password: SecretStr  # bootstrap superuser, scripts only
-    oi_owner_password: SecretStr
+    oi_owner_password: SecretStr  # migrations and loader
+    oi_agent_password: SecretStr  # product queries (analytics views only)
+    oi_trace_password: SecretStr  # trace writer
+    oi_eval_password: SecretStr  # evaluation references (raw + analytics, read-only)
+    oi_injtest_password: SecretStr  # injection suite (M8)
 
     data_dir: Path = PROJECT_ROOT / "data" / "raw"
 

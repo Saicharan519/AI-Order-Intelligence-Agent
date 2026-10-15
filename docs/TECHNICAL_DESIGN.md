@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.2 |
+| Version | 1.3 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -197,13 +197,15 @@ Views run with the owner's privileges by default, so `oi_agent` can read them wi
 | View | Grain | Key columns |
 |---|---|---|
 | `orders` | One row per order | `order_id`, `customer_unique_id`, `customer_state`, `customer_city`, `order_status`, `purchase_ts`, `purchase_date`, `purchase_month`, `approved_ts`, `carrier_ts`, `delivered_ts`, `estimated_delivery_date` (cast to date), `is_sale` (status not canceled or unavailable), `is_delivered` (status delivered and `delivered_ts` present), `is_late` (delivered date later than estimated date; NULL if not delivered), `days_late` (negative means early), `seller_handling_days`, `carrier_transit_days`, `promised_days`, `delivery_days`, `item_count`, `seller_count`, `items_revenue` (sum of price, 0 if no items), `freight_total`, `payment_total`, `review_score` (latest answered review), `has_review_comment` (boolean only) |
-| `order_items` | One row per item | `order_id`, `order_item_id`, `product_id`, `seller_id`, `price`, `freight_value`, `category` (English; `unknown` if null), `product_weight_g`, and denormalised `purchase_month`, `order_status`, `is_sale`, `is_late`, `customer_state`, `seller_state`, `seller_city` |
+| `order_items` | One row per item | `order_id`, `order_item_id`, `product_id`, `seller_id`, `price`, `freight_value`, `category` (English; `unknown` if null; Portuguese name if untranslated), `product_weight_g`, and denormalised `purchase_date`, `purchase_month`, `order_status`, `is_sale`, `is_late`, `customer_unique_id`, `customer_state`, `seller_state`, `seller_city` |
 | `payments` | One row per order | `order_id`, `payment_total`, `payment_count`, `installments_max`, `payment_types` (for example `credit_card+voucher`), `primary_payment_type` |
 | `reviews` | One row per order | `order_id`, `review_score`, `review_created_date`, `review_answered_ts`, `has_comment` (no text) |
 | `sellers` | One row per seller | `seller_id`, `seller_city`, `seller_state` |
-| `data_coverage` | One row per month | `month`, `orders_count`, `is_partial` (fewer than 500 orders) |
+| `data_coverage` | One row per calendar month, including months with zero orders | `month`, `orders_count`, `is_partial` (fewer than 500 orders), `in_analysis_window` |
 
-Late is computed as `delivered_ts::date > estimated_delivery_date::date`. No view joins payments to items; payments are pre-aggregated per order to avoid fan-out.
+Late is computed as `delivered_ts::date > estimated_delivery_date::date`. No view joins payments to items; payments are pre-aggregated per order to avoid fan-out. Stage durations (`seller_handling_days`, `carrier_transit_days`, `promised_days`, `delivery_days`) are in days rounded to two decimals, and NULL when negative (recording errors: 166 handling and 23 transit values). Views and key columns carry `COMMENT`s in the database, from which the validator allow-list (M4) and prompt documentation (M5) are generated.
+
+M2 results (see `docs/postgres_findings.md`): all five behaviours in section 7.2 were confirmed; `oi_agent` was shown to switch off its own statement timeout and read-only default with `set_config` inside a `SELECT`; with read-only off, all 38 attack statements still fail with `insufficient_privilege`.
 
 ### 6.5 Trace tables (`trace`)
 
@@ -507,3 +509,4 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Ablations A to E measure SQL generation only (grounding removed from D; routing and faithfulness measured separately). LangGraph confirmed as wiring only, with direct SDK calls instead of LangChain wrappers. Recorded verified provider facts, including thinking mode on by default. |
 | 1.2 | 2026-10-15 | Section 14: small-seller figure corrected to 51 (date-based late), matching PRD v1.2. |
+| 1.3 | 2026-10-15 | Section 6.4 updated to the implemented views (extra denormalised columns, Portuguese fallback for untranslated categories, negative durations NULL, empty months in `data_coverage`, database comments). Q-03 results recorded. |

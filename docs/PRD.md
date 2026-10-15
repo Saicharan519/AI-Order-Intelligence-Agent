@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.2 |
+| Version | 1.3 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -96,10 +96,11 @@ All dataset figures in this document (here and in section 8.3) are provisional u
 | Ambiguous "late" | `estimated_delivery_date` is always midnight. Comparing timestamps marks 1,292 same-day deliveries as late: 8.11% overall, versus 6.77% when comparing dates. | Late is defined by date comparison (section 6). |
 | Undelivered orders | 2,965 orders have no customer delivery date (2,957 non-delivered orders plus 8 "delivered" orders); 6 non-delivered orders have one. 2,963 orders are not in `delivered` status. | Late is defined only for delivered orders with a delivery date. |
 | Duplicate reviews | 814 repeated `review_id` rows; 547 orders have more than one review; about 5% of reviews pre-date the recorded delivery date. | `reviews` view: latest answered review per order. |
-| Category gaps | 610 products have no category; 2 categories have no English translation. | Left joins, with `unknown` as the label. |
+| Category gaps | 610 products have no category; 2 categories (`pc_gamer`, `portateis_cozinha_e_preparadores_de_alimentos`) have no English translation. | Left joins: missing categories are labelled `unknown`; the two untranslated categories keep their Portuguese names, which is more informative than `unknown`. |
 | Small sellers | The median seller has 6 orders; 1,301 of 3,095 sellers have fewer than 5; 51 sellers with 1 to 3 delivered orders show a 100% late rate (late by date; the timestamp comparison would give 57). | Ranking eligibility requires at least 30 orders (634 sellers, 76.8% of revenue). |
 | Multi-seller orders | 1,278 orders involve more than one seller. | Order-level outcomes are never attributed to a single seller without stating so. |
-| Sparse months | See section 5.2. | Partial-period warnings from a coverage view. |
+| Sparse months | See section 5.2. November 2016 has no orders at all. | Partial-period warnings from a coverage view that lists every calendar month, including empty ones. |
+| Impossible timestamps | 166 orders were handed to the carrier before they were purchased; 23 were delivered before carrier hand-off. | Stage durations below zero are treated as recording errors and set to NULL. |
 | Untyped source | All CSV fields are text. | Typed tables created at load time. |
 
 ## 6. Business definitions
@@ -114,7 +115,7 @@ These definitions are versioned in `glossary/glossary.md`, supplied to the model
 | Sale / revenue | Sum of item `price`, excluding freight, over orders whose status is not `canceled` or `unavailable`. Including those orders changes 2017 revenue by 0.77%. |
 | Customer | `customer_unique_id` (a person), never `customer_id`. |
 | Order month | Month of the purchase timestamp. |
-| Seller handling days | Carrier hand-off timestamp minus purchase timestamp. |
+| Seller handling days | Carrier hand-off timestamp minus purchase timestamp. Negative stage durations are recording errors and are NULL. |
 | Carrier transit days | Customer delivery timestamp minus carrier hand-off timestamp. |
 | Promised days | Estimated delivery date minus purchase timestamp. |
 | Review score | Score of the latest answered review for the order. |
@@ -392,3 +393,4 @@ Seller-scoped mode with row-level security, additional playbooks (seller scoreca
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Corrected the undelivered-order count (2,965 without a delivery date, not 2,963). Execution accuracy scored on answerable items with confidence intervals; out-of-scope items scored as routing only. Added non-thinking-mode requirement (verified provider default). Marked dataset figures provisional until reproduced. |
 | 1.2 | 2026-10-15 | M1 reproduction of section 5 figures with our own SQL (see `docs/data_profile.md`): all match except the small-seller figure, which is 51 under the date-based definition of late (57 was the timestamp-based count). Reviews created before the delivery date: 5.3% ("about 5%" confirmed). |
+| 1.3 | 2026-10-15 | M2: untranslated categories keep their Portuguese names (instead of `unknown`); impossible negative stage durations are NULL; November 2016 (zero orders) is listed as a partial month. Examples 1 and 2 and the Example 3 headline reproduced exactly through the views. |

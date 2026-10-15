@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.1 |
+| Version | 1.2 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) |
@@ -105,9 +105,9 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 - joining items to payments naively inflates item revenue by 4.54% (13,591,644 to 14,209,115); the `payments` view does not
 - 2017 revenue (canceled and unavailable orders excluded) is about 6,108,492 over 44,375 orders; the top five categories match PRD Example 1
 - `reviews` has one row per reviewed order (98,673); 1,278 orders involve more than one seller
-- `data_coverage` flags exactly the months 2016-09, 2016-10, 2016-12, 2018-09, and 2018-10 as partial
+- `data_coverage` flags exactly the months 2016-09, 2016-10, 2016-11 (zero orders), 2016-12, 2018-09, and 2018-10 as partial
 
-**Tests:** all of the above, as automated integration tests (mini fixture in CI, real data locally).
+**Tests:** all of the above, as automated integration tests on the real data. The synthetic mini fixture is built with the planted-anomaly tests (M7) and wired into CI in M10, where it is first needed.
 **Acceptance criteria:** SC-01 satisfied; numeric acceptance queries pass; Q-03 resolved.
 **Deliverables:** role and view migrations, glossary, permission tests, `docs/postgres_findings.md`.
 
@@ -297,3 +297,4 @@ The validator, database roles, golden-set evaluation, safety suite, budget guard
 |---|---|---|
 | 1.0 | 2026-10-15 | Initial version. |
 | 1.1 | 2026-10-15 | Commits and paid calls require the project owner's approval. M0 split into M0a (local setup, free) and M0b (provider calibration, paid, approval required). |
+| 1.2 | 2026-10-15 | M2 acceptance includes the empty month 2016-11; mini fixture moved to M7/M10. |
