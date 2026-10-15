@@ -1,0 +1,13 @@
+# Runtime dependencies, pinned (versions checked on PyPI 2026-10-15).
+psycopg[binary]==3.3.6      # PostgreSQL driver: COPY, cancellation, server-side cursors
+sqlglot==30.23.0            # SQL parser for the validator (Postgres dialect)
+pydantic==2.14.1            # typed schemas, LLM JSON validation
+pydantic-settings==2.16.0   # configuration from environment / .env
+openai==3.31.0              # OpenAI-compatible client, pointed at DeepSeek
+langgraph==1.2.15           # thin orchestration wiring only (nodes are plain functions)
+fastapi==0.143.2            # API (M9)
+uvicorn==0.54.0             # ASGI server (M9)
+streamlit==1.66.0           # UI (M9)
+pandas==3.0.6               # result comparison and chart data
+pyyaml==6.0.3               # golden-set / attack case files
+python-dotenv==1.2.4        # load .env for scripts

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Blocks commits that contain secrets. Enabled with: git config core.hooksPath .githooks
+for py in .venv/Scripts/python.exe .venv/bin/python python3 python; do
+  if command -v "$py" >/dev/null 2>&1 || [ -x "$py" ]; then
+    exec "$py" scripts/check_secrets.py --staged
+  fi
+done
+echo "pre-commit: no Python found; cannot run the secret check" >&2
+exit 1

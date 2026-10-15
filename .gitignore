@@ -1,0 +1,33 @@
+# Secrets: never commit. Only .env.example (names, no values) is tracked.
+.env
+.env.*
+!.env.example
+
+# Dataset: downloaded manually from Kaggle, not redistributed
+data/raw/*
+!data/raw/.gitkeep
+
+# Evaluation cache (contains raw LLM responses) and local spend ledgers
+eval/cache/
+*.ledger.jsonl
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
