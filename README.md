@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M3 (golden question set and scoring harness). The agent itself is not built yet. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M4 (SQL validator and guarded executor). The LLM agent itself is not built yet. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
@@ -60,6 +60,23 @@ Run from the project root (the folder containing this README), in Git Bash.
 | `meta` | Applied migrations | `oi_owner` |
 
 `oi_agent`, the only role that will run model-written SQL, can read the six views and nothing else; 38 attack statements are tested to fail by permissions alone. See [docs/postgres_findings.md](docs/postgres_findings.md).
+
+## How a query reaches the database
+
+```
+model-written SQL ──► validator ──► ValidatedSQL ──► executor ──► PostgreSQL (oi_agent)
+                      VR-01..VR-09     (only the       read-only, timeout,
+                      sqlglot + pglast  validator      EXPLAIN ceiling,
+                                        can mint it)   500-row cap, cancel timer
+```
+
+The validator parses SQL into a syntax tree, allows only one SELECT over the six views with allow-listed functions and known columns, enforces a LIMIT, and regenerates the SQL without comments; PostgreSQL's own parser then double-checks it. The executor runs only validated SQL, with its own limits, because a session can change role defaults. Results: [docs/progress.md](docs/progress.md) (M4) and [docs/parser_decision.md](docs/parser_decision.md).
+
+After changing the views, regenerate the allow-list:
+
+```bash
+.venv/Scripts/python scripts/gen_allowlists.py
+```
 
 Stop the database with `docker compose stop db`. `docker compose down` removes the container but keeps the data volume; `docker compose down -v` also deletes the data.
 

@@ -2,7 +2,42 @@
 
 ## Current milestone
 
-**M3 complete.** Questions reviewed and approved by the owner; test split frozen (SHA-256 `c8262a28…`). Next: M4 (validator and executor). M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
+**M4 complete (pending commit approval).** Next: M0b (DeepSeek calibration, needs the API key and approval), then M5 (baseline agent and ablations, paid).
+
+## 2026-10-15 — M4: validator and guarded executor
+
+**Completed**
+- `scripts/gen_allowlists.py` → `src/orderintel/guard/allowlist.json` (6 views, 62 columns, types and comments, introspected as `oi_agent`) with a drift test.
+- `src/orderintel/guard/validator.py`: VR-01 to VR-09 with sqlglot; whole-tree checks (catches `DELETE` inside a CTE); schema-aware column resolution on a copy; LIMIT 501 enforcement; SQL regenerated without comments; pglast second opinion. Returns `ValidatedSQL`, which only the validator can create.
+- `src/orderintel/db/executor.py`: read-only transaction, `SET LOCAL statement_timeout` and `search_path`, EXPLAIN cost ceiling (250,000), fetch 501 rows and flag truncation at 500, client-side cancel timer, sanitised errors.
+- `docs/parser_decision.md` (Q-04): sqlglot primary, pglast second opinion.
+- Playbook-SQL test scaffold (skipped until M7).
+
+**Tests and checks (actually run)**
+
+| Check | Result |
+|---|---|
+| Validator unit tests (positive and negative per rule, 26 legitimate view queries, 18 PostgreSQL function spellings, forged `ValidatedSQL`) | 134 passed |
+| Executor integration tests (26 queries run; shape; row cap; cost ceiling; server timeout; client-side cancel with the server timeout disabled; read-only even with a forged DELETE; error sanitising) | passed |
+| Deterministic attack suite: 28 SQL attacks from `attacks.yaml` | 28 of 28 stopped by the expected layer: 24 validator, 2 cost ceiling, 2 row cap; 0 ran unrestricted |
+| Allow-list drift test | passed |
+| Q-04 parser comparison (66 inputs incl. nested comments, dollar quoting, escape strings) | 0 accepted queries read by PostgreSQL as anything but one SELECT |
+| Full `pytest` | 415 passed, 1 skipped (playbook scaffold) |
+| `ruff check .`, `pip check` | passed |
+
+**Issues found and fixed during M4**
+- sqlglot represents `AND`, `OR`, `EXISTS`, and `ARRAY[...]` as function nodes, so the first validator version rejected ordinary `WHERE a AND b`; 7 of 26 legitimate queries failed. Fixed; `ARRAY[...]` is size-limited like `IN` lists.
+- `FOR UPDATE` was rejected under VR-02 instead of VR-03 (sqlglot's `Lock` node); relabelled.
+- The cost-ceiling value was first written before measuring; replaced with the calibrated 250,000 and the measurements recorded.
+
+**Known limitations**
+- Backslashes in ordinary string literals may be reinterpreted by sqlglot (`'\x41'` → `'A'`); structure is unaffected.
+- Regex operators (`~`) are rejected; `LIKE`/`ILIKE` work.
+- A query that returns rows from an expensive join is estimated cheaply because of the injected LIMIT; the 8 s timeout is the guard for those.
+- The EXPLAIN ceiling is calibrated on hand-written queries; M5 re-tunes it on model-written SQL.
+
+**API cost incurred:** $0.00
+ M0b (DeepSeek calibration, paid) waits for an API key and explicit approval.
 
 ## 2026-10-15 — M3: golden set and evaluation harness
 
@@ -154,6 +189,7 @@
 **API cost incurred:** $0.00
 
 ## Next steps
-1. M4: validator (VR-01 to VR-09), guarded executor, allow-lists generated from the database, parser comparison (Q-04).
-2. M0b (before M5): owner adds the DeepSeek key to `.env`; calibration after approval.
+1. Owner approves the M4 commit (and push).
+2. M0b: owner adds the DeepSeek key to `.env`; provider facts checked (Q-02); about 10 calibration calls (< $0.01) after approval.
+3. M5: LLM client with budget guard and cache; SQL-generation prompts A–C; cost estimate and approval before each paid run.
 3. M0b (any time before M5): owner creates a DeepSeek key in `.env`; calibration of about 10 calls (< $0.01) after approval.

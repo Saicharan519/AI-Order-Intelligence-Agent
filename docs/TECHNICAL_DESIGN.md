@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.3 |
+| Version | 1.4 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -97,7 +97,7 @@ Versions are pinned during M0 after checking current releases.
 | Language | Python 3.11+ | Ecosystem and typing support |
 | Database | PostgreSQL (pinned current major version, in Docker) | Roles, grants, timeouts, and `EXPLAIN` support the safety design. SQLite and DuckDB have weaker permission models. |
 | Database driver | `psycopg` 3 | `COPY`, query cancellation, server-side cursors |
-| SQL parsing | `sqlglot` (Postgres dialect) | Parses, walks, and regenerates SQL. `pglast` (the real PostgreSQL parser) is evaluated in M4 (Q-04). |
+| SQL parsing | `sqlglot` (Postgres dialect), with `pglast` as a second opinion | sqlglot parses, walks, rewrites, and regenerates SQL and resolves columns against the schema. pglast (PostgreSQL's own grammar) re-checks the regenerated SQL (Q-04, `docs/parser_decision.md`). |
 | Orchestration | LangGraph for wiring only; nodes are plain functions over a typed state. Code, not the model, decides the control flow; no open-ended ReAct tool loop. | Four routes, conditional edges, and a bounded repair loop suit a graph; plain functions keep tests simple and independent of LangGraph (Q-05). |
 | LLM access | `openai` Python SDK with a custom `base_url`, behind an internal `LLMClient` interface. LangChain model wrappers are not used. | DeepSeek exposes an OpenAI-compatible interface (verified 2026-10-15). Calling the SDK directly exposes exact `usage` fields, including cache hits, for the cost ledger. The adapter makes a second provider a small change. |
 | Models | `deepseek-flash` (primary), `deepseek-v4-pro` (comparison) | Identifiers come from the provider's pricing page and are read from configuration. |
@@ -255,7 +255,8 @@ Evaluation calls are recorded here too (`config_name = eval:*`), so the budget i
 - VR-06: every column resolves against the known view columns. An unknown column is rejected, which keeps review text unreachable.
 - VR-07: a `LIMIT` is injected when absent or above the cap.
 - VR-08: at most six joined relations; SQL length at most 4,000 characters; `IN` lists at most 100 items.
-- VR-09: comments are removed because the SQL is regenerated from the AST.
+- VR-09: comments are removed because the SQL is regenerated from the AST; PostgreSQL's own parser (pglast) must then read the regenerated SQL as exactly one SELECT with no data-modifying node, `INTO`, or locking clause anywhere in its tree.
+- Implemented in M4 (`src/orderintel/guard/validator.py`). The view and column allow-list is generated from the database (`scripts/gen_allowlists.py` → `src/orderintel/guard/allowlist.json`) with a drift test. Function names are sqlglot's normalised names (for example `date_trunc` is `TIMESTAMP_TRUNC`). `current_date` and `now()` are rejected with a hint to use the anchor date. The executor accepts only `ValidatedSQL` objects, which only the validator can create.
 
 **Database behaviours the design depends on** (confirmed by automated tests in M2 and M4; this section is updated if any differs, Q-03):
 
@@ -271,7 +272,7 @@ Items 2 to 4 are the reason the function and schema allow-lists exist on top of 
 
 1. Open a connection as `oi_agent` and begin a read-only transaction.
 2. `SET LOCAL statement_timeout` (default 8 s).
-3. Run `EXPLAIN (FORMAT JSON)` on the validated SQL and reject the query if estimated cost or rows exceed the configured ceilings (calibrated in M4 and M5).
+3. Run `EXPLAIN (FORMAT JSON)` on the validated SQL and reject the query if the estimated cost exceeds the ceiling. Calibrated in M4: 26 legitimate view queries cost at most about 40,000 planner units, a self-join on `purchase_month` about 540,000, a cartesian join about 112,000,000; the ceiling is 250,000 and is re-tuned in M5. The validator injects `LIMIT 501`, so plans returning rows are estimated cheaply; aggregates over expensive joins are what the ceiling catches.
 4. Execute with `fetchmany(cap + 1)`, `cap = 500`, and flag `truncated` if exceeded.
 5. A client-side timer cancels the query if the database timeout does not fire (second guard).
 6. Roll back and close the connection.
@@ -495,7 +496,7 @@ The live deployment is temporary because the free plan is time-limited. The dura
 |---|---|---|
 | Q-02 | DeepSeek base URL, usage fields, thinking mode, caching behaviour, rate limits, balance expiry | M0 |
 | Q-03 | The PostgreSQL behaviours listed in section 7.2 | M2, M4 |
-| Q-04 | `sqlglot` versus `pglast` on the attack cases | M4 |
+| Q-04 | `sqlglot` versus `pglast` on the attack cases | Resolved in M4: sqlglot primary, pglast second opinion (`docs/parser_decision.md`) |
 | Q-05 | LangGraph API at installation time | M6 |
 | Q-06 | Baseline accuracy and whether the initial targets need revision | M5 |
 | Q-08 | Streamlit sufficiency for the four components | M9 |
@@ -510,3 +511,4 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.1 | 2026-10-15 | Ablations A to E measure SQL generation only (grounding removed from D; routing and faithfulness measured separately). LangGraph confirmed as wiring only, with direct SDK calls instead of LangChain wrappers. Recorded verified provider facts, including thinking mode on by default. |
 | 1.2 | 2026-10-15 | Section 14: small-seller figure corrected to 51 (date-based late), matching PRD v1.2. |
 | 1.3 | 2026-10-15 | Section 6.4 updated to the implemented views (extra denormalised columns, Portuguese fallback for untranslated categories, negative durations NULL, empty months in `data_coverage`, database comments). Q-03 results recorded. |
+| 1.4 | 2026-10-15 | M4: pglast added as a second-opinion parser (Q-04 resolved); validator implementation notes; EXPLAIN ceiling calibrated (250,000). |
