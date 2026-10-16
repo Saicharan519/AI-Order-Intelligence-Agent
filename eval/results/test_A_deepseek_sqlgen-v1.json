@@ -1,0 +1,796 @@
+{
+ "config": "A",
+ "split": "test",
+ "model": "deepseek-flash",
+ "prompt_version": "sqlgen-v1",
+ "started_at": "2026-10-16T11:19:48+00:00",
+ "n": 18,
+ "ran": 18,
+ "correct": 3,
+ "accuracy": 0.16666666666666666,
+ "ci95": [
+  0.05836470400465757,
+  0.39222499638359243
+ ],
+ "by_category": {
+  "lookup": {
+   "n": 2,
+   "correct": 0
+  },
+  "aggregate": {
+   "n": 5,
+   "correct": 1
+  },
+  "trend": {
+   "n": 4,
+   "correct": 2
+  },
+  "trap": {
+   "n": 5,
+   "correct": 0
+  },
+  "ambiguous": {
+   "n": 2,
+   "correct": 0
+  }
+ },
+ "repairs_used": 0,
+ "cost_usd": 0.002126,
+ "llm_calls": 18,
+ "cached_calls": 0,
+ "latency_p50_ms": 1222,
+ "latency_p95_ms": 1734,
+ "items": [
+  {
+   "id": "lookup_03",
+   "category": "lookup",
+   "split": "test",
+   "question": "On what date was order e481f51cbdc54678b7cc49136f2d6af7 delivered to the customer?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT order_delivered_customer_date FROM raw.orders WHERE order_id = 'e481f51cbdc54678b7cc49136f2d6af7'",
+   "assumptions": [
+    "The delivery date is the order_delivered_customer_date field in raw.orders.",
+    "The order_id is unique, so at most one row is returned."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT order_delivered_customer_date FROM raw.orders WHERE order_id = 'e481f51cbdc54678b7cc49136f2d6af7'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "2017-10-10 21:25:13"
+    ]
+   ],
+   "cost_usd": 7.812e-05,
+   "latency_ms": 1318,
+   "tokens_in": 824,
+   "tokens_cache_hit": 640,
+   "tokens_out": 81,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "lookup_07",
+   "category": "lookup",
+   "split": "test",
+   "question": "What review score did order 013056cfe49763c6f66bda03396c5ee3 receive?",
+   "status": "ok",
+   "correct": false,
+   "reason": "row count 2 != expected 1",
+   "sql": "SELECT review_score FROM raw.order_reviews WHERE order_id = '013056cfe49763c6f66bda03396c5ee3'",
+   "assumptions": [
+    "An order may have more than one review row; all matching review scores are returned."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT review_score FROM raw.order_reviews WHERE order_id = '013056cfe49763c6f66bda03396c5ee3'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 2,
+   "rows_preview": [
+    [
+     5.0
+    ],
+    [
+     4.0
+    ]
+   ],
+   "cost_usd": 6.507e-05,
+   "latency_ms": 652,
+   "tokens_in": 821,
+   "tokens_cache_hit": 640,
+   "tokens_out": 60,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "agg_02",
+   "category": "aggregate",
+   "split": "test",
+   "question": "How many orders were delivered?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT COUNT(*) AS delivered_orders FROM raw.orders WHERE order_status = 'delivered'",
+   "assumptions": [
+    "'Delivered' orders are identified by order_status = 'delivered'."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS delivered_orders FROM raw.orders WHERE order_status = 'delivered'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     96478.0
+    ]
+   ],
+   "cost_usd": 5.367e-05,
+   "latency_ms": 832,
+   "tokens_in": 801,
+   "tokens_cache_hit": 640,
+   "tokens_out": 46,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "agg_06",
+   "category": "aggregate",
+   "split": "test",
+   "question": "How many distinct sellers made at least one sale in 2017?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT COUNT(DISTINCT oi.seller_id) AS distinct_sellers FROM raw.order_items oi JOIN raw.orders o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01'",
+   "assumptions": [
+    "'Made at least one sale' means the seller appears in order_items for an order purchased in 2017, regardless of order status.",
+    "2017 is the calendar year from 2017-01-01 00:00:00 up to but not including 2018-01-01 00:00:00."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT oi.seller_id) AS distinct_sellers FROM raw.order_items oi JOIN raw.orders o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1784.0
+    ]
+   ],
+   "cost_usd": 0.00011487,
+   "latency_ms": 1222,
+   "tokens_in": 809,
+   "tokens_cache_hit": 640,
+   "tokens_out": 146,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "agg_09",
+   "category": "aggregate",
+   "split": "test",
+   "question": "What is the average delivery time in days for delivered orders, from purchase to delivery?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (order_delivered_customer_date - order_purchase_timestamp)) / 86400.0)::numeric, 2) AS avg_delivery_days FROM raw.orders WHERE order_status = 'delivered' AND order_delivered_customer_date IS NOT NULL",
+   "assumptions": [
+    "Delivery time is measured from order_purchase_timestamp to order_delivered_customer_date.",
+    "Only orders with order_status = 'delivered' and a non-null delivery date are included.",
+    "Average is rounded to two decimals."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (order_delivered_customer_date - order_purchase_timestamp)) / 86400.0)::numeric, 2) AS avg_delivery_days FROM raw.orders WHERE order_status = 'delivered' AND order_delivered_customer_date IS NOT NULL",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     12.56
+    ]
+   ],
+   "cost_usd": 0.00010572,
+   "latency_ms": 972,
+   "tokens_in": 812,
+   "tokens_cache_hit": 640,
+   "tokens_out": 130,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_11",
+   "category": "aggregate",
+   "split": "test",
+   "question": "What was the average order value in 2017?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT ROUND(AVG(order_total), 2) AS avg_order_value FROM (SELECT o.order_id, SUM(oi.price + oi.freight_value) AS order_total FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01' GROUP BY o.order_id) t",
+   "assumptions": [
+    "Average order value is computed as the mean of each order's total item value including freight (price + freight_value).",
+    "Orders are attributed to 2017 by order_purchase_timestamp.",
+    "All orders with items in 2017 are included regardless of order_status."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(AVG(order_total), 2) AS avg_order_value FROM (SELECT o.order_id, SUM(oi.price + oi.freight_value) AS order_total FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01' GROUP BY o.order_id) t",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     160.23
+    ]
+   ],
+   "cost_usd": 0.00012402,
+   "latency_ms": 1314,
+   "tokens_in": 806,
+   "tokens_cache_hit": 640,
+   "tokens_out": 162,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "agg_14",
+   "category": "aggregate",
+   "split": "test",
+   "question": "What percentage of delivered orders purchased in 2018 arrived late?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "WITH delivered_2018 AS (\n    SELECT order_id,\n           order_delivered_customer_date,\n           order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_status = 'delivered'\n      AND order_purchase_timestamp >= '2018-01-01'\n      AND order_purchase_timestamp < '2019-01-01'\n      AND order_delivered_customer_date IS NOT NULL\n)\nSELECT ROUND(\n           100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n           / NULLIF(COUNT(*), 0),\n           2\n       ) AS late_percentage\nFROM delivered_2018;",
+   "assumptions": [
+    "'Late' means the actual customer delivery date is after the estimated delivery date.",
+    "Only orders with order_status = 'delivered' are considered.",
+    "Purchased in 2018 means order_purchase_timestamp falls in calendar year 2018 (2018-01-01 to 2018-12-31).",
+    "Orders with a missing actual delivery date are excluded from the denominator."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH delivered_2018 AS (\n    SELECT order_id,\n           order_delivered_customer_date,\n           order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_status = 'delivered'\n      AND order_purchase_timestamp >= '2018-01-01'\n      AND order_purchase_timestamp < '2019-01-01'\n      AND order_delivered_customer_date IS NOT NULL\n)\nSELECT ROUND(\n           100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n           / NULLIF(COUNT(*), 0),\n           2\n       ) AS late_percentage\nFROM delivered_2018;",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     9.37
+    ]
+   ],
+   "cost_usd": 0.00017772,
+   "latency_ms": 1734,
+   "tokens_in": 808,
+   "tokens_cache_hit": 640,
+   "tokens_out": 251,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trend_02",
+   "category": "trend",
+   "split": "test",
+   "question": "Show monthly revenue from January to August 2018.",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0, 1]",
+   "sql": "SELECT to_char(o.order_purchase_timestamp, 'YYYY-MM') AS month, ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2018-09-01' GROUP BY to_char(o.order_purchase_timestamp, 'YYYY-MM') ORDER BY month",
+   "assumptions": [
+    "Revenue is defined as the sum of item price plus freight value from order_items.",
+    "All orders in the period are included regardless of order_status.",
+    "Months are based on order_purchase_timestamp."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT to_char(o.order_purchase_timestamp, 'YYYY-MM') AS month, ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2018-09-01' GROUP BY to_char(o.order_purchase_timestamp, 'YYYY-MM') ORDER BY month",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 8,
+   "rows_preview": [
+    [
+     "2018-01",
+     1107301.89
+    ],
+    [
+     "2018-02",
+     986908.96
+    ],
+    [
+     "2018-03",
+     1155126.82
+    ],
+    [
+     "2018-04",
+     1159698.04
+    ],
+    [
+     "2018-05",
+     1149781.82
+    ]
+   ],
+   "cost_usd": 0.00012222,
+   "latency_ms": 1139,
+   "tokens_in": 806,
+   "tokens_cache_hit": 640,
+   "tokens_out": 159,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trend_05",
+   "category": "trend",
+   "split": "test",
+   "question": "Which 5 customer states placed the most orders?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT c.customer_state, COUNT(DISTINCT o.order_id) AS order_count FROM raw.orders o JOIN raw.customers c ON o.customer_id = c.customer_id GROUP BY c.customer_state ORDER BY order_count DESC LIMIT 5",
+   "assumptions": [
+    "'Most orders' means the highest number of distinct orders placed by customers in each state.",
+    "Each order is counted once per state based on the customer's state."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT c.customer_state, COUNT(DISTINCT o.order_id) AS order_count FROM raw.orders o JOIN raw.customers c ON o.customer_id = c.customer_id GROUP BY c.customer_state ORDER BY order_count DESC LIMIT 5",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 5,
+   "rows_preview": [
+    [
+     "SP",
+     41746.0
+    ],
+    [
+     "RJ",
+     12852.0
+    ],
+    [
+     "MG",
+     11635.0
+    ],
+    [
+     "RS",
+     5466.0
+    ],
+    [
+     "PR",
+     5045.0
+    ]
+   ],
+   "cost_usd": 8.427e-05,
+   "latency_ms": 840,
+   "tokens_in": 805,
+   "tokens_cache_hit": 640,
+   "tokens_out": 96,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_08",
+   "category": "trend",
+   "split": "test",
+   "question": "How many orders used each payment type, from most to least common?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT payment_type, COUNT(DISTINCT order_id) AS order_count FROM raw.order_payments GROUP BY payment_type ORDER BY order_count DESC",
+   "assumptions": [
+    "An order is counted once per payment type even if it has multiple payment records of that type.",
+    "Orders with multiple payment types are counted under each type."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT payment_type, COUNT(DISTINCT order_id) AS order_count FROM raw.order_payments GROUP BY payment_type ORDER BY order_count DESC",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 5,
+   "rows_preview": [
+    [
+     "credit_card",
+     76505.0
+    ],
+    [
+     "boleto",
+     19784.0
+    ],
+    [
+     "voucher",
+     3866.0
+    ],
+    [
+     "debit_card",
+     1528.0
+    ],
+    [
+     "not_defined",
+     3.0
+    ]
+   ],
+   "cost_usd": 6.927e-05,
+   "latency_ms": 1107,
+   "tokens_in": 809,
+   "tokens_cache_hit": 640,
+   "tokens_out": 70,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_11",
+   "category": "trend",
+   "split": "test",
+   "question": "What was the average review score for orders placed in each month from January to August 2018?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT to_char(o.order_purchase_timestamp, 'YYYY-MM') AS month, ROUND(AVG(r.review_score)::numeric, 2) AS avg_review_score FROM raw.orders o JOIN raw.order_reviews r ON r.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2018-09-01' GROUP BY to_char(o.order_purchase_timestamp, 'YYYY-MM') ORDER BY month",
+   "assumptions": [
+    "'Placed in each month' is based on order_purchase_timestamp.",
+    "Only orders that have at least one review are included, since the average is over review scores.",
+    "If an order has multiple review rows, each review score contributes to the average."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT to_char(o.order_purchase_timestamp, 'YYYY-MM') AS month, ROUND(AVG(r.review_score)::numeric, 2) AS avg_review_score FROM raw.orders o JOIN raw.order_reviews r ON r.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2018-09-01' GROUP BY to_char(o.order_purchase_timestamp, 'YYYY-MM') ORDER BY month",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 8,
+   "rows_preview": [
+    [
+     "2018-01",
+     4.04
+    ],
+    [
+     "2018-02",
+     3.83
+    ],
+    [
+     "2018-03",
+     3.75
+    ],
+    [
+     "2018-04",
+     4.16
+    ],
+    [
+     "2018-05",
+     4.19
+    ]
+   ],
+   "cost_usd": 0.00013017,
+   "latency_ms": 1296,
+   "tokens_in": 815,
+   "tokens_cache_hit": 640,
+   "tokens_out": 170,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trap_01",
+   "category": "trap",
+   "split": "test",
+   "question": "What was the 2017 revenue from orders paid at least partly by credit card?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue_2017 FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01' AND EXISTS (SELECT 1 FROM raw.order_payments p WHERE p.order_id = o.order_id AND p.payment_type = 'credit_card')",
+   "assumptions": [
+    "Revenue is defined as the sum of item price plus freight value for orders purchased in 2017.",
+    "'Paid at least partly by credit card' means the order has at least one payment record with payment_type = 'credit_card'.",
+    "2017 refers to orders with order_purchase_timestamp in calendar year 2017."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue_2017 FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01' AND EXISTS (SELECT 1 FROM raw.order_payments p WHERE p.order_id = o.order_id AND p.payment_type = 'credit_card')",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     5652574.56
+    ]
+   ],
+   "cost_usd": 0.00013812,
+   "latency_ms": 1427,
+   "tokens_in": 812,
+   "tokens_cache_hit": 640,
+   "tokens_out": 184,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trap_04",
+   "category": "trap",
+   "split": "test",
+   "question": "What percentage of orders placed in February 2018 were delivered late?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "WITH feb_orders AS (\n    SELECT order_id, order_delivered_customer_date, order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_purchase_timestamp >= '2018-02-01'\n      AND order_purchase_timestamp < '2018-03-01'\n)\nSELECT\n    ROUND(100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n          / NULLIF(COUNT(*) FILTER (WHERE order_delivered_customer_date IS NOT NULL), 0), 2) AS late_pct\nFROM feb_orders;",
+   "assumptions": [
+    "'Delivered late' means the actual customer delivery date is after the estimated delivery date.",
+    "The percentage is computed over orders that were actually delivered (delivered_customer_date not null); undelivered orders are excluded from the denominator.",
+    "February 2018 orders are those with order_purchase_timestamp in [2018-02-01, 2018-03-01)."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH feb_orders AS (\n    SELECT order_id, order_delivered_customer_date, order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_purchase_timestamp >= '2018-02-01'\n      AND order_purchase_timestamp < '2018-03-01'\n)\nSELECT\n    ROUND(100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n          / NULLIF(COUNT(*) FILTER (WHERE order_delivered_customer_date IS NOT NULL), 0), 2) AS late_pct\nFROM feb_orders;",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     16.0
+    ]
+   ],
+   "cost_usd": 0.00016647,
+   "latency_ms": 1253,
+   "tokens_in": 809,
+   "tokens_cache_hit": 640,
+   "tokens_out": 232,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trap_07",
+   "category": "trap",
+   "split": "test",
+   "question": "What was the average number of orders per month in 2018?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "WITH monthly AS (SELECT date_trunc('month', order_purchase_timestamp) AS month, COUNT(*) AS orders FROM raw.orders WHERE order_purchase_timestamp >= '2018-01-01' AND order_purchase_timestamp < '2019-01-01' GROUP BY 1) SELECT ROUND(AVG(orders), 2) AS avg_orders_per_month FROM monthly",
+   "assumptions": [
+    "'2018' means calendar year 2018 (Jan 1 to Dec 31, 2018).",
+    "Average is computed over months that had at least one order; months with zero orders are not included.",
+    "All orders are counted regardless of order_status."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH monthly AS (SELECT date_trunc('month', order_purchase_timestamp) AS month, COUNT(*) AS orders FROM raw.orders WHERE order_purchase_timestamp >= '2018-01-01' AND order_purchase_timestamp < '2019-01-01' GROUP BY 1) SELECT ROUND(AVG(orders), 2) AS avg_orders_per_month FROM monthly",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     5401.1
+    ]
+   ],
+   "cost_usd": 0.00011607,
+   "latency_ms": 1048,
+   "tokens_in": 809,
+   "tokens_cache_hit": 640,
+   "tokens_out": 148,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trap_10",
+   "category": "trap",
+   "split": "test",
+   "question": "What was the total revenue in November 2017?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT ROUND(SUM(oi.price + oi.freight_value), 2) AS total_revenue FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-11-01' AND o.order_purchase_timestamp < '2017-12-01'",
+   "assumptions": [
+    "Revenue is defined as the sum of item price plus freight value for orders purchased in November 2017.",
+    "All order statuses are included; no status filter was specified."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(SUM(oi.price + oi.freight_value), 2) AS total_revenue FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-11-01' AND o.order_purchase_timestamp < '2017-12-01'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1179143.77
+    ]
+   ],
+   "cost_usd": 9.942e-05,
+   "latency_ms": 851,
+   "tokens_in": 806,
+   "tokens_cache_hit": 640,
+   "tokens_out": 121,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trap_14",
+   "category": "trap",
+   "split": "test",
+   "question": "Who is our best seller?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [1]",
+   "sql": "WITH seller_metrics AS (\n    SELECT\n        oi.seller_id,\n        COUNT(DISTINCT oi.order_id) AS orders_count,\n        SUM(oi.price) AS total_revenue,\n        AVG(r.review_score) AS avg_review_score\n    FROM raw.order_items oi\n    JOIN raw.orders o ON o.order_id = oi.order_id\n    LEFT JOIN raw.order_reviews r ON r.order_id = oi.order_id\n    WHERE o.order_status = 'delivered'\n    GROUP BY oi.seller_id\n)\nSELECT\n    seller_id,\n    orders_count,\n    ROUND(total_revenue, 2) AS total_revenue,\n    ROUND(avg_review_score, 2) AS avg_review_score\nFROM seller_metrics\nORDER BY total_revenue DESC\nLIMIT 1;",
+   "assumptions": [
+    "'Best seller' is interpreted as the seller with the highest total revenue from delivered orders.",
+    "Only orders with order_status = 'delivered' are considered.",
+    "Revenue is the sum of order_items.price (freight excluded).",
+    "Average review score is computed over all reviews linked to the seller's delivered orders; it is reported but not used for ranking."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH seller_metrics AS (\n    SELECT\n        oi.seller_id,\n        COUNT(DISTINCT oi.order_id) AS orders_count,\n        SUM(oi.price) AS total_revenue,\n        AVG(r.review_score) AS avg_review_score\n    FROM raw.order_items oi\n    JOIN raw.orders o ON o.order_id = oi.order_id\n    LEFT JOIN raw.order_reviews r ON r.order_id = oi.order_id\n    WHERE o.order_status = 'delivered'\n    GROUP BY oi.seller_id\n)\nSELECT\n    seller_id,\n    orders_count,\n    ROUND(total_revenue, 2) AS total_revenue,\n    ROUND(avg_review_score, 2) AS avg_review_score\nFROM seller_metrics\nORDER BY total_revenue DESC\nLIMIT 1;",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "4869f7a5dfa277a7dca6462dcf3b52b2",
+     1124.0,
+     226987.93,
+     4.14
+    ]
+   ],
+   "cost_usd": 0.00018807,
+   "latency_ms": 1511,
+   "tokens_in": 801,
+   "tokens_cache_hit": 640,
+   "tokens_out": 270,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "ambig_03",
+   "category": "ambiguous",
+   "split": "test",
+   "question": "What were our sales last year?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT SUM(oi.price + oi.freight_value) AS total_sales FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01'",
+   "assumptions": [
+    "'Last year' is interpreted as the calendar year 2017, since today's date is 2018-08-31.",
+    "Sales is measured as the total value of order items including freight (price + freight_value).",
+    "All orders in 2017 are counted regardless of order_status, as the question does not specify a status filter."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT SUM(oi.price + oi.freight_value) AS total_sales FROM raw.orders o JOIN raw.order_items oi ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp >= '2017-01-01' AND o.order_purchase_timestamp < '2018-01-01'",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     7142672.43
+    ]
+   ],
+   "cost_usd": 0.00011682,
+   "latency_ms": 1591,
+   "tokens_in": 802,
+   "tokens_cache_hit": 640,
+   "tokens_out": 151,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "ambig_06",
+   "category": "ambiguous",
+   "split": "test",
+   "question": "What is our late-delivery rate recently?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "WITH recent_orders AS (\n    SELECT order_id,\n           order_delivered_customer_date,\n           order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_status = 'delivered'\n      AND order_delivered_customer_date IS NOT NULL\n      AND order_purchase_timestamp >= DATE '2018-07-01'\n      AND order_purchase_timestamp < DATE '2018-09-01'\n)\nSELECT ROUND(\n           100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n           / NULLIF(COUNT(*), 0),\n           2\n       ) AS late_delivery_rate_pct\nFROM recent_orders;",
+   "assumptions": [
+    "'Recently' is interpreted as orders purchased in the last two complete months before today (2018-08-31), i.e. July and August 2018.",
+    "Only delivered orders with a recorded customer delivery date are considered, since late delivery can only be evaluated for those.",
+    "An order is late when the actual customer delivery date is after the estimated delivery date."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH recent_orders AS (\n    SELECT order_id,\n           order_delivered_customer_date,\n           order_estimated_delivery_date\n    FROM raw.orders\n    WHERE order_status = 'delivered'\n      AND order_delivered_customer_date IS NOT NULL\n      AND order_purchase_timestamp >= DATE '2018-07-01'\n      AND order_purchase_timestamp < DATE '2018-09-01'\n)\nSELECT ROUND(\n           100.0 * COUNT(*) FILTER (WHERE order_delivered_customer_date > order_estimated_delivery_date)\n           / NULLIF(COUNT(*), 0),\n           2\n       ) AS late_delivery_rate_pct\nFROM recent_orders;",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     7.48
+    ]
+   ],
+   "cost_usd": 0.00017592,
+   "latency_ms": 1482,
+   "tokens_in": 804,
+   "tokens_cache_hit": 640,
+   "tokens_out": 249,
+   "llm_calls": 1,
+   "cached_calls": 0,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  }
+ ]
+}

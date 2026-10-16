@@ -2,7 +2,33 @@
 
 ## Current milestone
 
-**M5 in progress: development-split tuning finished; final prompt `sqlgen-v1` selected by a pre-declared rule.** Next: the single test-split run of A to D (expected $0.009) after the owner's approval.
+**M5 complete (pending commit).** Next: M6 (Ask mode: router, answer writer, grounding check, scope, graph).
+
+## 2026-10-16 — M5 part 4: the single test-split run (headline result, owner-approved)
+
+Run once at 11:19 UTC with the selected prompt `sqlgen-v1`, after confirming the test-split fingerprint was unchanged (`c8262a28…`). 18 answerable test items. Results `eval/results/test_*_deepseek_sqlgen-v1.json`; manual review `eval/reviews/test_sqlgen-v1_tags.yaml`; report `eval/reports/ablation.md`.
+
+| Config | Strict correct (95% CI) | Data correct after review | Real analytical errors |
+|---|---|---|---|
+| A raw DDL | 3/18, 17% (6-39%) | 5/18 | 13 |
+| B + glossary | 15/18, 83% (61-94%) | 17/18 | 1 (duplicate reviews, lookup_07) |
+| C views + glossary | 15/18, 83% (61-94%) | 17/18 | 1 (payment types, trend_08) |
+| D C + controls | 15/18, 83% (61-94%) | 17/18 | 1 (same as C) |
+
+**Success criteria (PRD section 12) — Q-06 resolved, targets not revised**
+- SC-04 (D ≥ 75% on the test split and ≥ 15 points above A): **met on the point estimate** (83%, +66 points). With 18 items the 95% interval (61-94%) still includes values below 75%, so the claim is "met, with wide uncertainty".
+- SC-05 (traps ≥ 70% for D): test 4/5; development 9/9; combined 13/14 (93%, CI 69-99%). **Met.**
+- SC-10 (latency): SQL generation alone has p50 about 1.2 s and p95 about 2.1 s; the full Ask p95 is measured in M6.
+
+**What the measurements say (reported as measured, including negative results)**
+1. The glossary is the largest single gain: A → B is +66 points on the test split (+28 on development). A's errors are the documented data traps: freight counted as revenue (5), lateness by timestamp (3), missing filters (2), duplicate reviews (1), partial months (1).
+2. The views add no strict accuracy over the glossary on the test split (B = C = 83%); on development C was +8 points over B with `sqlgen-v1`, and +-2 with `sqlgen-v2`. With 18-36 items this difference is within noise. B and C each made one real error, and different ones.
+3. The views introduced one error of their own: the `payments` view's one-row-per-order design (which prevents fan-out) exposes `primary_payment_type`, and C counted orders by it instead of counting every type an order used (trend_08). A design trade-off to address in a later view revision (for example per-type boolean columns); it cannot be re-scored on the test split without contaminating it.
+4. D equals C: across all D runs the validator and executor rejected nothing, so no repair was ever used. On these questions the controls add safety, not accuracy; the repair loop is exercised only by the fake-model tests and the safety suite (M8).
+5. A scored much lower on test (17%) than on development (58%): the test items happen to contain more definition traps (freight, lateness, canceled orders) and fewer pure lookups.
+6. Cost per question (SQL generation): about $0.0001 off-peak with prompt caching.
+
+**API cost:** test run $0.006299. Project total **$0.031286 of the $1.90 cap** (ledger $0.030597 + calibration $0.000689).
 
 ## 2026-10-16 — M5 part 3: prompt iteration `sqlgen-v2` (owner-approved) and prompt selection
 

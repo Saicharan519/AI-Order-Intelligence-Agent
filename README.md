@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M4 (SQL validator and guarded executor). The LLM agent itself is not built yet. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M5 complete: SQL-generation ablation measured (test split: raw tables 17%, + glossary 83%, views + glossary 83%, + controls 83%; see [eval/reports/ablation.md](eval/reports/ablation.md)). Ask mode (M6) is next. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 

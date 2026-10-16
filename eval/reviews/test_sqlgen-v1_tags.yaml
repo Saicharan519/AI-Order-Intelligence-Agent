@@ -1,0 +1,35 @@
+# Manual failure tags for the single test-split run with prompt sqlgen-v1 (2026-10-16 11:19 UTC).
+# Every wrong item was inspected (SQL, result rows, assumptions, reference). Tags and the
+# "semantic" flag as in dev_sqlgen-v1_tags.yaml. The test split itself is unchanged.
+
+A:
+  lookup_03: {tag: output_format,    semantic: false, note: delivery timestamp returned when the question asks for the date; the date is correct}
+  lookup_07: {tag: wrong_definition, semantic: true,  note: both reviews returned (5 and 4) instead of the latest answered review (4)}
+  agg_02:    {tag: missing_filter,   semantic: true,  note: status delivered without requiring a delivery date (96,478 vs 96,470)}
+  agg_06:    {tag: missing_filter,   semantic: true,  note: sellers counted on all orders, canceled/unavailable included (1,784 vs 1,766)}
+  agg_11:    {tag: wrong_definition, semantic: true,  note: order value includes freight (160.23 vs 137.66)}
+  agg_14:    {tag: wrong_definition, semantic: true,  note: late by timestamp (9.37% vs 7.73%)}
+  trend_02:  {tag: wrong_definition, semantic: true,  note: revenue includes freight; month also returned as text}
+  trend_11:  {tag: output_format,    semantic: false, note: month returned as text 2018-01; averages correct}
+  trap_01:   {tag: wrong_definition, semantic: true,  note: revenue includes freight (5,652,575 vs 4,859,393)}
+  trap_04:   {tag: wrong_definition, semantic: true,  note: late by timestamp (16.0% vs 14.13%)}
+  trap_07:   {tag: wrong_time_window, semantic: true, note: partial months September/October 2018 averaged in (5,401 vs 6,749)}
+  trap_10:   {tag: wrong_definition, semantic: true,  note: revenue includes freight (1,179,144 vs 1,003,862)}
+  trap_14:   {tag: wrong_definition, semantic: true,  note: right seller ranked first, but revenue differs (226,988 vs 229,238) and extra columns returned}
+  ambig_03:  {tag: wrong_definition, semantic: true,  note: sales include freight (7,142,672 vs 6,108,492)}
+  ambig_06:  {tag: wrong_definition, semantic: true,  note: late by timestamp (7.48% vs 3.38% for July 2018; the window chosen also differs)}
+
+B:
+  lookup_03: {tag: output_format,    semantic: false, note: timestamp instead of the requested date; the date is correct}
+  lookup_07: {tag: wrong_definition, semantic: true,  note: both reviews returned although the model noted the latest-review definition}
+  trend_11:  {tag: output_format,    semantic: false, note: month returned as text 2018-01; averages correct}
+
+C:
+  lookup_03: {tag: output_format,    semantic: false, note: delivered_ts returned instead of its date; the date is correct}
+  trend_08:  {tag: wrong_definition, semantic: true,  note: counted each order once under primary_payment_type instead of every type it used (credit_card 74,975 vs 76,505; voucher 3,151 vs 3,866). The payments view's one-row-per-order design made the per-type count less obvious; B, on raw tables, got it right.}
+  trap_14:   {tag: output_format,    semantic: false, note: ranked top-10 list returned; the first row is the reference answer (same seller and revenue)}
+
+D:
+  lookup_03: {tag: output_format,    semantic: false, note: identical to C (cached first attempt, no rejection)}
+  trend_08:  {tag: wrong_definition, semantic: true,  note: identical to C}
+  trap_14:   {tag: output_format,    semantic: false, note: identical to C}

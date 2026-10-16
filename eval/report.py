@@ -172,7 +172,9 @@ def main() -> int:
     dev = load("dev", prompt)
     apply_tags(dev, load_tags("dev", prompt))
     test_versions = prompt_versions("test")
-    test = load("test", test_versions[-1]) if test_versions else {}
+    test_prompt = test_versions[-1] if test_versions else prompt
+    test = load("test", test_prompt)
+    apply_tags(test, load_tags("test", test_prompt))
     out = [
         "# Ablation results",
         "",
@@ -194,6 +196,7 @@ def main() -> int:
         "## Test split (18 answerable items; frozen, run once per configuration)",
         "",
         *section("test", test),
+        *review_section(test, load_tags("test", test_prompt)),
     ]
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")

@@ -59,5 +59,44 @@ Failure tags:
 
 ## Test split (18 answerable items; frozen, run once per configuration)
 
-_No runs on the test split yet._
+| Config | Data the model sees | Correct | Accuracy (95% CI) | Ran | Repairs | Calls (cached) | Cost | p50 / p95 latency |
+|---|---|---|---|---|---|---|---|---|
+| A | raw DDL | 3/18 | 17% (6%-39%) | 18/18 | 0 | 18 (0) | $0.0021 | 1222 / 1734 ms |
+| B | raw DDL + glossary | 15/18 | 83% (61%-94%) | 18/18 | 0 | 18 (0) | $0.0024 | 1321 / 1788 ms |
+| C | views + glossary | 15/18 | 83% (61%-94%) | 18/18 | 0 | 18 (0) | $0.0017 | 1181 / 2072 ms |
+| D | C + validator, EXPLAIN gate, repairs | 15/18 | 83% (61%-94%) | 18/18 | 0 | 18 (18) | $0.0000 | 0 / 0 ms |
+
+Per category (correct / answerable):
+
+| Config | lookup | aggregate | trend | trap | ambiguous |
+|---|---|---|---|---|---|
+| A | 0/2 | 1/5 | 2/4 | 0/5 | 0/2 |
+| B | 0/2 | 5/5 | 3/4 | 5/5 | 2/2 |
+| C | 1/2 | 5/5 | 3/4 | 4/5 | 2/2 |
+| D | 1/2 | 5/5 | 3/4 | 4/5 | 2/2 |
+
+Items answered wrongly:
+
+- **A** (15): `lookup_03` (output_format), `lookup_07` (wrong_definition), `agg_02` (missing_filter), `agg_06` (missing_filter), `agg_11` (wrong_definition), `agg_14` (wrong_definition), `trend_02` (wrong_definition), `trend_11` (output_format), `trap_01` (wrong_definition), `trap_04` (wrong_definition), `trap_07` (wrong_time_window), `trap_10` (wrong_definition), `trap_14` (wrong_definition), `ambig_03` (wrong_definition), `ambig_06` (wrong_definition)
+- **B** (3): `lookup_03` (output_format), `lookup_07` (wrong_definition), `trend_11` (output_format)
+- **C** (3): `lookup_03` (output_format), `trend_08` (wrong_definition), `trap_14` (output_format)
+- **D** (3): `lookup_03` (output_format), `trend_08` (wrong_definition), `trap_14` (output_format)
+
+Manual review of every wrong answer (`eval/reviews/`). *Data correct* counts answers whose numbers are right but whose shape differs from the reference (tag `output_format`: extra columns, text labels instead of booleans, month as text). The strict score above remains the headline metric.
+
+| Config | Strict correct | Data correct | Real analytical errors | Format-only misses |
+|---|---|---|---|---|
+| A | 3/18 | 5/18 (28%, CI 12%-51%) | 13 | 2 |
+| B | 15/18 | 17/18 (94%, CI 74%-99%) | 1 | 2 |
+| C | 15/18 | 17/18 (94%, CI 74%-99%) | 1 | 2 |
+| D | 15/18 | 17/18 (94%, CI 74%-99%) | 1 | 2 |
+
+Failure tags:
+
+| Tag | A | B | C | D |
+|---|---|---|---|---|
+| missing_filter | 2 | 0 | 0 | 0 |
+| output_format | 2 | 2 | 2 | 2 |
+| wrong_definition | 10 | 1 | 1 | 1 |
+| wrong_time_window | 1 | 0 | 0 | 0 |
 
