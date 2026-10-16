@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.4 |
+| Version | 1.5 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) |
@@ -194,7 +194,7 @@ M0 runs in two parts. **M0a** (T-0.1 to T-0.3 and T-0.6) is local and free. **M0
 | T-7.4 | Narration prompt and checks: number grounding, `top_driver` agreement, and causal lint. | Checks wired |
 | T-7.5 | Scope inheritance and at least five follow-up evaluation cases. | Follow-ups working |
 | T-7.6 | Investigation evaluation: 15 cases plus 2 planted anomalies on the mini fixture. | Report |
-| T-7.7 | Reproduce PRD Example 3 from the playbook output: late 19.0% (1,328 of 7,003), baseline 5.8%, transit 13.0 versus 9.1 days, RJ 34.5%, BA 31.5%, MG 20.4%, 465 sellers with a top-five share of 11.5%, reviews 2.07 versus 4.21. Any difference is investigated and either the playbook or the PRD is corrected. | Example reproduced |
+| T-7.7 | Reproduce PRD Example 3 from the playbook output: late 19.0% (1,328 of 7,003), baseline 5.8%, transit 13.0 versus 9.1 days, RJ 34.5%, SP 9.4%, MG 20.4% (states ranked by excess late orders), 466 sellers with a top-five share of 11.5%, reviews 2.07 versus 4.21. Any difference is investigated and either the playbook or the PRD is corrected. (Done in M7: PRD v1.7 corrected the seller count from 465 to 466, which three independent definitions agree on, and the state list, which had matched no stated ranking rule.) | Example reproduced |
 
 **Tests:** every playbook step passes the validator (M4 scaffold) · negative controls produce the "nothing notable" verdict · planted anomalies are identified.
 **Acceptance criteria:** SC-08; FR-11 and FR-12 satisfied.
@@ -300,3 +300,4 @@ The validator, database roles, golden-set evaluation, safety suite, budget guard
 | 1.2 | 2026-10-15 | M2 acceptance includes the empty month 2016-11; mini fixture moved to M7/M10. |
 | 1.3 | 2026-10-15 | Tasks rewritten for the Gemini free tier (DeepSeek top-up failed). |
 | 1.4 | 2026-10-16 | DeepSeek restored as the primary provider (version 1.2 text restored); Gemini free tier named as the second model for T-10.7. |
+| 1.5 | 2026-10-16 | T-7.7 updated with the corrected Example 3 figures. M7 split into part 1 (real-data playbooks, narration, scope inheritance, evaluation) and part 2 (synthetic mini fixture with planted anomalies). |

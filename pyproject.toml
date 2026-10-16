@@ -32,3 +32,9 @@ ignore = ["S101"]  # assert is fine in tests
 [tool.ruff.lint.per-file-ignores]
 # Tests build SQL strings on purpose to feed attacks and fixtures to the validator.
 "tests/**" = ["S608", "E501"]  # long SQL and JSON fixtures are clearer on one line
+# Playbook SQL is assembled from module constants only; user parameters are substituted into
+# the syntax tree as typed literals and the result passes the validator (playbooks/base.py).
+"src/orderintel/playbooks/**" = ["S608"]
+# Evaluation scripts: reference SQL is assembled from module constants (no user input), and
+# report rows are long Markdown table lines.
+"eval/**" = ["S608", "E501"]

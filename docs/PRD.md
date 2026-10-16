@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.6 |
+| Version | 1.7 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -217,11 +217,12 @@ HEADLINE  19.0% late (1,328 of 7,003 delivered orders) versus a 5.8% baseline.
                         seller          3.3     3.2
                         transit        13.0     9.1   (+3.9 days)
                         promised       22.0    23.8   (estimates were not extended)
-2 GEOGRAPHY             RJ 34.5% late (n=864; baseline 10.5%)
-                        BA 31.5% (n=235; baseline 10.7%)
-                        MG 20.4% (n=856; baseline 3.3%)
-                        Excluding RJ and BA the rate is still 16.2%: the pattern is systemic.
-3 SELLER CONCENTRATION  465 distinct sellers among late orders; the top 5 account for 11.5%.
+2 GEOGRAPHY             ranked by excess late orders (above each state's own baseline):
+                        RJ 34.5% late (n=864; baseline 10.5%; +208 late orders)
+                        SP  9.4% late (n=2,971; baseline 4.1%; +158)
+                        MG 20.4% late (n=856; baseline 3.3%; +147)
+                        Excluding RJ and SP the rate is still 23.7%: the pattern is broad.
+3 SELLER CONCENTRATION  466 distinct sellers among late orders; the top 5 account for 11.5%.
 4 CUSTOMER IMPACT       average review 2.07 (late, n=1,296) versus 4.21 (on time, n=5,652);
                         1-star share 59.3% versus 7.9%.
 CAVEATS   The data shows where delay occurred, not why the carrier slowed.
@@ -400,3 +401,4 @@ Seller-scoped mode with row-level security, additional playbooks (seller scoreca
 | 1.4 | 2026-10-15 | LLM provider changed to the Gemini API free tier because the DeepSeek top-up could not be paid. |
 | 1.5 | 2026-10-16 | The DeepSeek top-up succeeded, so DeepSeek is the primary provider again with the US$2 budget (the version 1.3 text is restored). The verified switch that disables thinking is recorded in section 13. Gemini's free tier, calibrated in the meantime, is kept as the optional second provider (F-16). |
 | 1.6 | 2026-10-16 | Section 6: "Analysis window" defined, including when it applies (trends and per-month figures) and when it does not (totals and "overall" figures). Both calibrated models had applied the window to an overall rate; the rule matches the frozen golden references, which are unchanged. |
+| 1.7 | 2026-10-16 | Example 3 corrected after reproducing it with the late-delivery playbook (M7): 466 sellers (not 465; three independent definitions agree), and states ranked by excess late orders (RJ, SP, MG; the earlier RJ, BA, MG matched no stated rule). All other Example 3 figures reproduced exactly. |

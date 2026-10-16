@@ -7,6 +7,7 @@ StateGraph with conditional edges).
 
 from __future__ import annotations
 
+import datetime as dt
 import time
 import uuid
 from typing import Any, TypedDict
@@ -15,9 +16,11 @@ from langgraph.graph import END, START, StateGraph
 
 from orderintel.agent.answer import AnswerText, write_answer
 from orderintel.agent.grounding import causal_findings, check_grounding, scope_texts
+from orderintel.agent.narrate import narrate
 from orderintel.agent.pipeline import SQLRun, run_question
 from orderintel.agent.router import RouterDecision, route
 from orderintel.agent.scope import build_scope, choose_components
+from orderintel.agent.session import STORE, SessionScope, SessionStore, scope_presence_warnings
 from orderintel.api.schemas import (
     AskResponse,
     Evidence,
@@ -31,6 +34,8 @@ from orderintel.api.schemas import (
 from orderintel.evaluation.compare import normalise_value
 from orderintel.guard.validator import RULES
 from orderintel.llm.client import LLMClient, LLMResult
+from orderintel.playbooks import PLAYBOOKS
+from orderintel.playbooks.base import PlaybookParams
 
 EVIDENCE_PREVIEW_ROWS = 10
 
@@ -39,11 +44,28 @@ class AskState(TypedDict, total=False):
     question: str
     request_id: str
     config_name: str
+    session_id: str | None
+    inherited: SessionScope | None
     started: float
     decision: RouterDecision
     sqlrun: SQLRun
     llm_results: list[LLMResult]
     response: AskResponse
+
+
+def month_end(first_day: dt.date) -> dt.date:
+    """Last day of the month that starts on first_day."""
+    return (first_day + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
+
+
+def _with_scope(question: str, scope: SessionScope | None) -> str:
+    return question if scope is None else f"{question}\n\n{scope.context_for_sql()}"
+
+
+def _inherited_filters(scope: SessionScope | None) -> list[str]:
+    if scope is None:
+        return []
+    return [f"inherited from investigation {scope.source_request_id[:8]}: {scope.describe()}"]
 
 
 def _usage(state: AskState) -> UsageOut:
@@ -75,13 +97,15 @@ def _evidence(run: SQLRun) -> Evidence:
 
 
 # ---------------- nodes ----------------
-def make_nodes(client: LLMClient):
+def make_nodes(client: LLMClient, store: SessionStore = STORE):
     def route_node(state: AskState) -> dict:
-        decision, result = route(client, state["question"], state["config_name"])
+        question = _with_scope(state["question"], state.get("inherited"))
+        decision, result = route(client, question, state["config_name"])
         return {"decision": decision, "llm_results": [*state.get("llm_results", []), result]}
 
     def sql_node(state: AskState) -> dict:
-        run = run_question(client, "D", state["question"], label=state["config_name"])
+        question = _with_scope(state["question"], state.get("inherited"))
+        run = run_question(client, "D", question, label=state["config_name"])
         return {"sqlrun": run}
 
     def answer_node(state: AskState) -> dict:
@@ -138,6 +162,9 @@ def make_nodes(client: LLMClient):
                 + ", ".join(causal)
                 + "); the data shows associations only."
             )
+        inherited = state.get("inherited")
+        if inherited is not None:
+            warnings += scope_presence_warnings(run.sql or "", inherited)
 
         response = AskResponse(
             request_id=state["request_id"],
@@ -149,6 +176,7 @@ def make_nodes(client: LLMClient):
                 period=Period(
                     start=scope.period_start, end=scope.period_end, source=scope.period_source
                 ),
+                filters=_inherited_filters(inherited),
                 definitions=scope.definitions,
                 assumptions=scope.assumptions,
                 n=scope.n,
@@ -220,18 +248,116 @@ def make_nodes(client: LLMClient):
 
     def investigate_node(state: AskState) -> dict:
         d = state["decision"]
+        params = PlaybookParams(period=d.params.period, state=d.params.state)
+        module = PLAYBOOKS[d.playbook]
+        pb_run, f = module.run(params)
+        findings = f.as_dict()
+        narration, check, narr_results, regenerated = narrate(
+            client, state["question"], findings, state["config_name"]
+        )
+        results = [*state.get("llm_results", []), *narr_results]
+
+        warnings = []
+        if narration.parse_error:
+            warnings.append("The narration could not be generated; showing the findings only.")
+        if check.untraced:
+            warnings.append(
+                "Some numbers in the narration could not be traced to the findings: "
+                + ", ".join(check.untraced)
+            )
+        if not check.driver_agrees:
+            warnings.append(
+                f"The narration named a different top driver than the computed one "
+                f"({f.top_driver}); trust the findings table."
+            )
+        if check.causal_terms:
+            warnings.append(
+                "The narration uses causal wording ("
+                + ", ".join(check.causal_terms)
+                + "); the data shows associations only."
+            )
+
+        population = (
+            "delivered orders"
+            if d.playbook == "late_delivery_diagnosis"
+            else "orders with a review"
+        )
+        store.set(
+            state.get("session_id"),
+            SessionScope(params.period, params.state, population, state["request_id"], time.time()),
+        )
+        where = f" in {params.state}" if params.state else ""
+        followups = []
+        if f.verdict == "elevated":
+            followups.append(
+                Followup(
+                    label=f"Which sellers had the most late orders{where} in {params.period}?",
+                    question=f"Which sellers had the most late orders{where} in {params.period}?",
+                    inherits_scope=True,
+                )
+            )
+            followups.append(
+                Followup(
+                    label=f"Break down {params.period}{where} by product category",
+                    question=f"Break down {params.period}{where} by product category.",
+                    inherits_scope=True,
+                )
+            )
+
+        month = params.month
         resp = AskResponse(
             request_id=state["request_id"],
             route="investigate",
-            status="not_available",
-            headline=(
-                f"This is an investigation question ({d.playbook}, "
-                f"{d.params.period}{', ' + d.params.state if d.params.state else ''}). "
-                "Investigate mode arrives in milestone M7."
+            status="ok",
+            headline=narration.headline or f"Verdict: {f.verdict}.",
+            components=[
+                {
+                    "type": "report",
+                    "playbook": d.playbook,
+                    "verdict": f.verdict,
+                    "top_driver": f.top_driver,
+                    "findings": findings,
+                }
+            ],
+            scope=ScopeOut(
+                period=Period(
+                    start=month.isoformat(), end=month_end(month).isoformat(), source="sql"
+                ),
+                population=population,
+                filters=[f"state {params.state}"] if params.state else [],
+                definitions=[
+                    "Baseline: all other months of January 2017 to August 2018, same filters"
+                ],
+                n=getattr(f, "delivered_orders", None) or getattr(f, "reviews", 0),
             ),
+            evidence=[
+                Evidence(
+                    id=f"s{i + 1}",
+                    kind="playbook_step",
+                    sql=s.sql,
+                    params=params.model_dump(),
+                    row_count=len(s.rows),
+                    rows_preview=[
+                        [normalise_value(v) for v in r] for r in s.rows[:EVIDENCE_PREVIEW_ROWS]
+                    ],
+                    validator=ValidatorOut(ok=True, rules_checked=list(RULES)),
+                    ms=s.ms,
+                )
+                for i, s in enumerate(pb_run.steps)
+            ],
+            notes=narration.summary_points,
+            caveats=list(dict.fromkeys([*narration.caveats, *f.caveats])),
+            warnings=warnings,
+            grounding=Grounding(
+                numbers_checked=check.numbers_checked,
+                untraced=check.untraced,
+                causal_terms=check.causal_terms,
+                regenerated=regenerated,
+            ),
+            followups=followups,
         )
-        resp.usage = _usage(state)
-        return {"response": resp}
+        resp.usage = _usage({**state, "llm_results": results})
+        return {"llm_results": results, "response": resp}
 
     return {
         "route": route_node,
@@ -244,8 +370,8 @@ def make_nodes(client: LLMClient):
     }
 
 
-def build_graph(client: LLMClient):
-    nodes = make_nodes(client)
+def build_graph(client: LLMClient, store: SessionStore = STORE):
+    nodes = make_nodes(client, store)
     g = StateGraph(AskState)
     for name, fn in nodes.items():
         g.add_node(name, fn)
@@ -265,12 +391,21 @@ def build_graph(client: LLMClient):
     return g.compile()
 
 
-def ask(client: LLMClient, question: str, config_name: str = "ask", graph=None) -> AskResponse:
-    app = graph or build_graph(client)
+def ask(
+    client: LLMClient,
+    question: str,
+    config_name: str = "ask",
+    graph=None,
+    session_id: str | None = None,
+    store: SessionStore = STORE,
+) -> AskResponse:
+    app = graph or build_graph(client, store)
     state: dict[str, Any] = {
         "question": question,
         "request_id": str(uuid.uuid4()),
         "config_name": config_name,
+        "session_id": session_id,
+        "inherited": store.get(session_id),
         "started": time.perf_counter(),
         "llm_results": [],
     }

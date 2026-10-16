@@ -2,7 +2,34 @@
 
 ## Current milestone
 
-**M6 complete (pending commit).** Next: M7 (Investigate mode: two playbooks, findings in code, narration checks, scope inheritance).
+**M7 part 1 built and tested without spend.** Next: the paid investigation evaluation (15 cases + 5 follow-ups, expected $0.013) after the owner's approval; then M7 part 2 (synthetic mini fixture with the two planted anomalies).
+
+## 2026-10-16 — M7 part 1: Investigate mode (no spend)
+
+**Completed**
+- `src/orderintel/playbooks/base.py`: typed parameters (month inside the data, valid state), placeholders substituted into the syntax tree as literals (no string formatting), then the normal validator and executor. All 19 playbook SQL steps pass the validator (the M4 scaffold test now runs).
+- `late_delivery_diagnosis`: KPI vs baseline, stage decomposition, geography (states ranked by excess late orders over their own baseline), categories (≥ 30 orders), seller concentration, review impact; verdict and top driver computed in code.
+- `low_review_diagnosis`: 1-star share and average score vs baseline, 1-star contribution by delivery group (late, on time, not delivered), worst categories and sellers (≥ 30 orders).
+- `prompts/narrate_v1.md`, `src/orderintel/agent/narrate.py`: the model narrates the findings; checks for number grounding, top-driver agreement, and causal wording, with one regeneration.
+- `src/orderintel/agent/session.py`: session scope (2-hour TTL, in memory) set by investigations, inherited by follow-up routing and SQL, with a scope-presence warning; `clear`.
+- Ask graph: the investigate route runs the playbook, returns a `report` component built by code, playbook steps as evidence, follow-up suggestions that inherit the scope.
+- `eval/label_investigations.py` → `eval/golden/investigation_labels.yaml`: expected verdicts and drivers computed from raw tables, independently of the views and playbooks.
+- `eval/run_investigation_eval.py`: 15 cases plus 5 follow-ups with raw-table references; writes `eval/reports/investigation_report.md`.
+
+**PRD Example 3 (T-7.7)** reproduced by the playbook: 19.0% (1,328 of 7,003) vs 5.8%; handling 3.33 vs 3.19, transit 12.97 vs 9.06, promised 22.03 vs 23.78 days; top driver carrier transit; RJ 34.5% (n = 864, baseline 10.5%); top-5 sellers 11.5% of late orders; reviews 2.07 vs 4.21, 1-star 59.3% vs 7.9%. Two figures corrected in PRD v1.7: 466 sellers (not 465; three independent definitions agree), and the state list, now ranked by excess late orders (RJ +208, SP +158, MG +147); the earlier RJ/BA/MG matched no stated rule.
+
+**Independent labels (13 playbook cases):** 9 elevated, all drivers as computed by the playbooks (5 late-delivery: carrier transit; 4 low-review: late delivery); 4 nothing notable: the 3 planned negative controls plus December 2017 (7.46% vs 6.75%, below the pre-set +3-point rule; the M3 draft had guessed it as a positive). The case mix is reported as labelled rather than changing the rule.
+
+**Grounding weaknesses found and fixed (measured with 200 random invented percentages, 1-40%)**
+- Narration: allowing every pair among about 40 findings numbers let 166/200 invented percentages pass. Now only related pairs (a value and its own baseline, late vs on time, group rate vs group baseline): 36/200 pass. Found by a test with a deliberately invented 21.4%.
+- Ask mode: on a 20-month series, all-pairs derivations let 67/200 pass; long columns now allow only adjacent, first/last, and max/min comparisons: 39/200. Single values: 0/200; top-5 table: 29/200. All 56 stored M6 answers still fully traced under the stricter rule (`--recheck`, no model calls).
+- Known limit: grounding is strong for small results and weaker for long series, where invented numbers can coincide with real ones.
+
+**Process slip, corrected:** the formatter was run on all of `src/`, which reformatted two unrelated files (`evaluation/compare.py`, `evaluation/golden.py`); both were restored from the last commit (formatting-only changes, verified by diff).
+
+**Tests (actually run):** full suite 542 passed, 0 skipped; new: 6 investigation and scope-inheritance end-to-end tests with a fake model (playbook + grounded narration; wrong driver + invented number + causal wording regenerated then flagged; negative control; follow-up inherits the scope; follow-up that drops it is flagged; cleared and other sessions inherit nothing).
+
+**API cost incurred in this part:** $0.00.
 
 ## 2026-10-16 — M6 part 2: Ask evaluation (owner-approved)
 

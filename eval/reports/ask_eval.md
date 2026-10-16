@@ -22,7 +22,7 @@ None.
 
 ## Re-check with corrected checkers (no new model calls)
 
-After the run, two checker false positives were fixed (with regression tests): digits at the start of hexadecimal ids (`4869f7a5…`) were read as numbers, and a methodological "excluded because the data is sparse" was read as a causal claim. The stored final answers were re-checked with the corrected checkers; their SQL was re-executed for the evidence rows. The model's answers are unchanged; the regeneration decisions above were made by the original checkers.
+After the run, two checker false positives were fixed (with regression tests): digits at the start of hexadecimal ids (`4869f7a5…`) were read as numbers, and a methodological "excluded because the data is sparse" was read as a causal claim. In M7 the grounding check was also made stricter: long result columns allow only adjacent, first/last, and max/min comparisons, because allowing all pairs let 67 of 200 random invented percentages pass on a 20-month series (now 39 of 200). The stored final answers were re-checked with the current checkers; their SQL was re-executed for the evidence rows. The model's answers are unchanged; the regeneration decisions above were made by the original checkers.
 
 | Metric | Original checkers | Corrected checkers |
 |---|---|---|

@@ -105,6 +105,27 @@ def _numbers_from(values) -> list[float]:
     return out
 
 
+ALL_PAIRS_UP_TO = 8
+
+
+def column_pairs(nums: list[float]):
+    """Comparisons allowed within one result column. Short columns (a top-5 table): every
+    pair. Long columns (a 20-month series): only the comparisons a narrator makes, i.e.
+    adjacent rows, first versus last, highest versus lowest, and each value versus the
+    highest and the lowest. All n^2 pairs of a long series would cover most of the number
+    line and let invented numbers pass (measured in M7: 67 of 200 random percentages)."""
+    if len(nums) <= ALL_PAIRS_UP_TO:
+        yield from itertools.permutations(nums, 2)
+        return
+    hi, lo = max(nums), min(nums)
+    pairs = {(nums[0], nums[-1]), (hi, lo)}
+    pairs |= {(nums[i + 1], nums[i]) for i in range(len(nums) - 1)}
+    pairs |= {(x, hi) for x in nums} | {(x, lo) for x in nums}
+    for a, b in pairs:
+        yield a, b
+        yield b, a
+
+
 def allowed_values(rows: list[tuple], context_texts: list[str]) -> set[float]:
     allowed: set[float] = set()
     columns = list(zip(*rows, strict=True)) if rows else []
@@ -120,7 +141,7 @@ def allowed_values(rows: list[tuple], context_texts: list[str]) -> set[float]:
             allowed.add(total)
             if total:
                 allowed.update(100 * x / total for x in nums)  # share of total
-        for a, b in itertools.permutations(nums, 2):
+        for a, b in column_pairs(nums):
             allowed.add(a - b)
             if b:
                 allowed.add(a / b)
@@ -150,10 +171,24 @@ def is_traced(n: ProseNumber, allowed: set[float]) -> bool:
 
 
 def check_grounding(prose: str, rows: list[tuple], context_texts: list[str]) -> GroundingResult:
+    return check_against(prose, allowed_values(rows, context_texts))
+
+
+def check_against(prose: str, allowed: set[float]) -> GroundingResult:
+    """Grounding against an explicit set of allowed values."""
     numbers = extract_numbers(prose)
-    allowed = allowed_values(rows, context_texts)
     untraced = list(dict.fromkeys(n.text for n in numbers if not is_traced(n, allowed)))
     return GroundingResult(len(numbers), untraced)
+
+
+def pair_derivations(a: float, b: float) -> set[float]:
+    """Comparisons a narrator may state between two related values."""
+    out = {a - b, b - a}
+    if b:
+        out |= {a / b, 100 * (a / b - 1)}
+    if a:
+        out |= {b / a}
+    return out
 
 
 METHOD_RE = re.compile(r"\b(excluded|included|filtered|omitted|removed|not shown)\b", re.I)
