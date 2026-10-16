@@ -2,7 +2,36 @@
 
 ## Current milestone
 
-**M6 in progress: Ask mode built and tested with a fake model (no spend).** Next: the paid Ask evaluation over all 60 golden items plus PRD Examples 1-2 (expected $0.026) after the owner's approval.
+**M6 complete (pending commit).** Next: M7 (Investigate mode: two playbooks, findings in code, narration checks, scope inheritance).
+
+## 2026-10-16 — M6 part 2: Ask evaluation (owner-approved)
+
+Run at 12:03 UTC (off-peak): all 60 golden items (both splits; measured, not tuned) plus PRD Examples 1 and 2 through the full Ask graph. Results `eval/results/ask_all_deepseek.json`; report `eval/reports/ask_eval.md`.
+
+| Metric | Result | Target |
+|---|---|---|
+| SC-07 routing | **60/60 = 100%** (CI 94-100%); all 6 out-of-scope requests refused, all 54 others answered | ≥ 90% — met |
+| SC-06 faithfulness (no untraced number after ≤ 1 regeneration) | **55/56 = 98%** with the original checker; **56/56** after fixing a checker false positive (below) | ≥ 95% — met |
+| Faithful on the first try | 51/56; the one regeneration fixed the other 4 | — |
+| Causal wording left in answers | 1/56 with the original lint (a false positive); 0/56 after the fix | 0 |
+| SQL correct among answered golden items | 49/54; the same five items as the M5 configuration D runs | — |
+| SC-10 latency, full Ask | p50 **2.8 s**, p95 **4.8 s** | p95 ≤ 20 s — met |
+| Cost | $0.0148 for 62 questions: answers about $0.00026 (3.1 calls, one served from the M5 cache), refusals about $0.00007 | — |
+
+**PRD examples:** Example 1 ("Top 5 categories by revenue in 2017") reproduced the figures (bed_bath_table R$497,971, watches_gifts R$486,519, health_beauty R$481,143, sports_leisure R$447,547, computers_accessories R$400,491) as a table plus bar chart, scope 2017-01-01 to 2017-12-31 with the revenue and sale definitions. Example 2 ("How is the late-delivery rate trending?") gave a line chart and named the November 2017 and February/March 2018 spikes (12.4%, 14.13%, 18.96%).
+
+**Checker false positives found and fixed (after the run, with regression tests):**
+- Grounding read the leading digits of hexadecimal seller ids (`4869f7a5…`) as numbers (trap_14). Identifiers mixing letters and digits are now removed before extraction, and a number glued to letters is ignored.
+- The causal lint flagged "months were excluded because data there is sparse" (ambig_05). Sentences explaining a methodological choice (excluded, included, filtered, omitted, removed, not shown) are now skipped.
+- `eval/run_ask_eval.py --recheck` re-ran the corrected checkers on all 56 stored answers without model calls: exactly these two items changed; nothing else did. The report shows both the original and the re-checked figures. The regeneration decisions during the run were made by the original checkers.
+
+**Decisions**
+- T-6.5: the anchor date and the minimum-volume rule are enforced by the prompt rules, the glossary, and the validator (real-date functions rejected with a hint). Measured: trap_12 ("last month" = July 2018) and trap_06 (≥ 30 orders) answered correctly.
+- T-6.6: router and SQL generation stay separate. A refusal costs about $0.00007 and 1.3 s because it never loads the schema; merging would save about one call per answer but put the full schema into every refusal and couple two prompts. Latency is far below the target either way.
+
+**API cost:** this run $0.014838. Project total **$0.046124 of the $1.90 cap** (ledger $0.045435 + calibration $0.000689).
+
+**Tests (actually run):** full suite 518 passed, 1 skipped.
 
 ## 2026-10-16 — M6 part 1: Ask mode (no spend)
 

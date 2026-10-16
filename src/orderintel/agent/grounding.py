@@ -30,9 +30,10 @@ DATE_PATTERNS = [
     re.compile(r"\b\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?\b"),
     re.compile(r"\b\d{4}-\d{2}\b"),
 ]
+IDENTIFIER_RE = re.compile(r"\b(?=\w*\d)(?=\w*[a-zA-Z])\w{8,}\b")  # hex ids, order ids
 NUMBER_RE = re.compile(
     r"(?<![\w.])(?P<cur>R\$\s?)?(?P<num>-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)"
-    r"\s?(?P<suf>%|k\b|K\b|M\b|mn\b|million\b|thousand\b|bn\b)?",
+    r"\s?(?P<suf>%|k\b|K\b|M\b|mn\b|million\b|thousand\b|bn\b)?(?![\w])",
 )
 MULTIPLIERS = {"k": 1e3, "K": 1e3, "thousand": 1e3, "M": 1e6, "mn": 1e6, "million": 1e6, "bn": 1e9}
 
@@ -73,6 +74,7 @@ class GroundingResult:
 
 
 def extract_numbers(text: str) -> list[ProseNumber]:
+    text = IDENTIFIER_RE.sub(" ", text)  # an id such as 4869f7a5dfa2... is not a number
     for p in DATE_PATTERNS:
         text = p.sub(" ", text)
     found = []
@@ -154,8 +156,18 @@ def check_grounding(prose: str, rows: list[tuple], context_texts: list[str]) -> 
     return GroundingResult(len(numbers), untraced)
 
 
+METHOD_RE = re.compile(r"\b(excluded|included|filtered|omitted|removed|not shown)\b", re.I)
+
+
 def causal_findings(prose: str) -> list[str]:
-    return sorted({m.group(0).lower() for m in CAUSAL_RE.finditer(prose)})
+    """Causal wording, except in sentences that explain a methodological choice
+    ("months were excluded because data there is sparse")."""
+    found = set()
+    for sentence in re.split(r"(?<=[.;!?])\s+|\n", prose):
+        if METHOD_RE.search(sentence):
+            continue
+        found.update(m.group(0).lower() for m in CAUSAL_RE.finditer(sentence))
+    return sorted(found)
 
 
 def scope_texts(question: str, scope) -> list[str]:

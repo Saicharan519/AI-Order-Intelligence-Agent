@@ -62,7 +62,28 @@ def main(argv=None) -> int:
     ap.add_argument("--estimate", action="store_true")
     ap.add_argument("--approved", action="store_true")
     ap.add_argument("--ids", help="comma-separated golden ids (subset)")
+    ap.add_argument(
+        "--recheck",
+        action="store_true",
+        help="re-run the current checkers on the stored answers (no model calls)",
+    )
     args = ap.parse_args(argv)
+    if args.recheck:
+        rows = json.loads(OUT.read_text(encoding="utf-8"))["items"]
+        rechecked = recheck(rows)
+        write_report(rows, rechecked)
+        for x in rechecked:
+            if x["untraced"] != x["original_untraced"] or x["causal"] != x["original_causal"]:
+                print(
+                    f"  {x['id']}: untraced {x['original_untraced']} -> {x['untraced']}; "
+                    f"causal {x['original_causal']} -> {x['causal']}"
+                )
+        print(
+            f"re-checked {len(rechecked)} answers: "
+            f"{sum(not x['untraced'] for x in rechecked)} fully traced, "
+            f"{sum(bool(x['causal']) for x in rechecked)} with causal wording"
+        )
+        return 0
 
     items = load_golden()
     if args.ids:
@@ -152,7 +173,42 @@ def main(argv=None) -> int:
     return 0
 
 
-def write_report(rows: list[dict]) -> None:
+def recheck(rows: list[dict]) -> list[dict]:
+    """Re-run the CURRENT grounding check and lint on the stored final answers (no model
+    calls): their SQL is executed again for the evidence rows. Used when a checker is fixed
+    after a run, so both the original and the re-checked result can be reported."""
+    from orderintel.agent.grounding import causal_findings, check_grounding
+    from orderintel.agent.pipeline import eval_execute
+
+    out = []
+    for r in rows:
+        if r["status"] != "ok" or not r["sql"]:
+            continue
+        _, evidence_rows, _ = eval_execute(r["sql"])
+        scope = r["scope"]
+        context = [
+            r["question"],
+            scope["period"]["start"],
+            scope["period"]["end"],
+            str(scope["n"]),
+            *scope["partial_period_warnings"],
+            *scope["assumptions"],
+        ]
+        prose = "\n".join([r["headline"], *r["notes"], *r["caveats"]])
+        g = check_grounding(prose, evidence_rows, context)
+        out.append(
+            {
+                "id": r["id"],
+                "untraced": g.untraced,
+                "causal": causal_findings(prose),
+                "original_untraced": r["grounding"]["untraced"],
+                "original_causal": r["grounding"]["causal_terms"],
+            }
+        )
+    return out
+
+
+def write_report(rows: list[dict], rechecked: list[dict] | None = None) -> None:
     labelled = [r for r in rows if r["split"] != "example"]
     routed_ok = sum(r["route_ok"] for r in labelled)
     answered = [r for r in rows if r["status"] == "ok"]
@@ -203,6 +259,34 @@ def write_report(rows: list[dict]) -> None:
     lines += [f'- `{r["id"]}`: {r["grounding"]["untraced"]} in "{r["headline"]}"' for r in unt] or [
         "None."
     ]
+    if rechecked:
+        faithful_now = sum(not x["untraced"] for x in rechecked)
+        causal_now = sum(bool(x["causal"]) for x in rechecked)
+        changed = [
+            x
+            for x in rechecked
+            if x["untraced"] != x["original_untraced"] or x["causal"] != x["original_causal"]
+        ]
+        lines += [
+            "",
+            "## Re-check with corrected checkers (no new model calls)",
+            "",
+            "After the run, two checker false positives were fixed (with regression tests): "
+            "digits at the start of hexadecimal ids (`4869f7a5…`) were read as numbers, and "
+            'a methodological "excluded because the data is sparse" was read as a causal '
+            "claim. The stored final answers were re-checked with the corrected checkers; "
+            "their SQL was re-executed for the evidence rows. The model's answers are "
+            "unchanged; the regeneration decisions above were made by the original checkers.",
+            "",
+            "| Metric | Original checkers | Corrected checkers |",
+            "|---|---|---|",
+            f"| Answers with no untraced number | {faithful}/{len(answered)} | "
+            f"{faithful_now}/{len(rechecked)} |",
+            f"| Answers with causal wording | {causal}/{len(answered)} | "
+            f"{causal_now}/{len(rechecked)} |",
+            "",
+            "Changed items: " + (", ".join(f"`{x['id']}`" for x in changed) or "none") + ".",
+        ]
     lines += ["", "## PRD examples", ""]
     for r in rows:
         if r["split"] == "example":

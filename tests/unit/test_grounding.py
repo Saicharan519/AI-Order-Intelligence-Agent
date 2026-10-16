@@ -81,6 +81,23 @@ def test_extract_numbers_reads_currency_and_suffixes():
     assert nums == {"R$6.11M": 6.11e6, "498k": 498e3, "12%": 12.0, "1,328": 1328.0}
 
 
+def test_identifiers_are_not_numbers():
+    # regression (M6 eval, trap_14): digits at the start of a hex seller id were flagged
+    prose = "Seller 4869f7a5dfa277a7dca6462dcf3b52b2 leads; 53243585a1d6dc2643021fd1853d8905 is second."
+    assert untraced(prose) == []
+    assert untraced("Order e481f51cbdc54678b7cc49136f2d6af7 was delivered.") == []
+
+
+def test_number_glued_to_letters_is_ignored_but_suffixes_work():
+    assert [n.text for n in extract_numbers("12abc 498k 12%")] == ["498k", "12%"]
+
+
+def test_methodological_because_is_not_causal():
+    # regression (M6 eval, ambig_05)
+    assert causal_findings("Months outside the window were excluded because data is sparse.") == []
+    assert causal_findings("Scores fell because deliveries were late.") == ["because"]
+
+
 def test_causal_lint():
     assert causal_findings(
         "Late deliveries drove low scores because carriers slowed, due to demand."

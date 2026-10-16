@@ -2,7 +2,7 @@
 
 A natural-language analytics assistant over the Olist Brazilian e-commerce dataset. It answers questions with validated, read-only SQL, shows the evidence behind every number, and is measured with a golden question set, ablations, and a safety suite, within a US$2 LLM budget.
 
-> **Status:** milestone M5 complete: SQL-generation ablation measured (test split: raw tables 17%, + glossary 83%, views + glossary 83%, + controls 83%; see [eval/reports/ablation.md](eval/reports/ablation.md)). Ask mode (M6) is next. See [docs/progress.md](docs/progress.md).
+> **Status:** milestone M6 complete: Ask mode answers with validated SQL and grounded text (routing 60/60, every number traced in 56/56 answers after a checker fix, p95 latency 4.8 s; see [eval/reports/ask_eval.md](eval/reports/ask_eval.md)). SQL ablation on the test split: raw tables 17%, + glossary 83%, views + glossary 83% ([eval/reports/ablation.md](eval/reports/ablation.md)). Investigate mode (M7) is next. See [docs/progress.md](docs/progress.md).
 
 Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
