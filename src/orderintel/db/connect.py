@@ -47,6 +47,12 @@ def connect_trace(settings: Settings | None = None, **kwargs) -> psycopg.Connect
     return _connect("oi_trace", s.oi_trace_password.get_secret_value(), s, **kwargs)
 
 
+def connect_injtest(settings: Settings | None = None, **kwargs) -> psycopg.Connection:
+    """oi_injtest: SELECT on the injtest views only; injection suite (M8), never the product."""
+    s = settings or get_settings()
+    return _connect("oi_injtest", s.oi_injtest_password.get_secret_value(), s, **kwargs)
+
+
 def connect_eval(settings: Settings | None = None, **kwargs) -> psycopg.Connection:
     """oi_eval: read-only on raw and analytics; evaluation tooling only."""
     s = settings or get_settings()

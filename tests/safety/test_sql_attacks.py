@@ -52,5 +52,5 @@ def test_sql_attack_is_stopped_by_expected_layer(attack):
 
 
 def test_suite_size():
-    assert len(SQL_ATTACKS) >= 28
-    assert len(ATTACKS) >= 40
+    assert len(SQL_ATTACKS) >= 32
+    assert len(ATTACKS) >= 44
