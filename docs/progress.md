@@ -2,7 +2,35 @@
 
 ## Current milestone
 
-**M4 complete. LLM provider changed to the Gemini API free tier.** Next: M0b (Gemini key from the owner; free-tier limits recorded; about 10 calibration calls after approval), then M5.
+**DeepSeek restored as the primary provider; M0b for DeepSeek pending** (needs the owner's key in `.env` and approval for about 10 calls, under $0.01). Gemini's free tier is calibrated and kept as the second provider. Next after M0b: M5.
+
+## 2026-10-16 — Provider: back to DeepSeek, Gemini kept as second provider
+
+**Why:** the owner completed the DeepSeek top-up.
+
+**Changes:** PRD v1.5, technical design v1.6, and implementation plan v1.4 restore the DeepSeek design (US$2 budget, `deepseek-flash` / `deepseek-v4-pro`) from the pre-switch versions in git and add: the verified thinking switch (`extra_body={"thinking": {"type": "disabled"}}`; default is on at `high` effort; thinking mode ignores `temperature`), Gemini free tier as the optional second provider (F-16, T-10.7), and bounded retries on 429 and 503. `.env.example` now holds both providers with `LLM_PROVIDER=deepseek`; the local `.env` was rebuilt from it, keeping all existing values (none printed). `scripts/calibrate.py` takes `--provider deepseek|gemini`. The Gemini calibration results below remain valid for the second provider.
+
+## 2026-10-16 — M0b: provider calibration (Gemini free tier)
+
+**Completed**
+- Owner created a Gemini key in a project without billing; free-tier limits recorded from AI Studio (`gemini-3.5-flash-lite`: 15 RPM, 250K input TPM, 500 RPD). Caps set in `.env` and `.env.example`: 12 RPM, 200K TPM, 450 RPD.
+- One connectivity test call, then 10 owner-approved calibration calls (`scripts/calibrate.py`).
+- `docs/provider_facts.md` written (Q-02 answered except the comparison model's limits).
+
+**Results (actually observed)**
+- Warm latency 1.1-1.9 s; cold first call 11.4 s; realistic SQL-generation call 1.2 s at thinking `low`.
+- Thinking cannot be disabled (`none` → HTTP 400); `minimal`/`low` accepted. Thinking tokens are not reported separately but equal total − prompt − completion: 0 at `low`, 1,028 at `medium` (+3.3 s).
+- JSON schema and JSON object outputs work.
+- `gemini-3.8-flash` returned HTTP 503 (high demand): the client must retry 503 and 429 with bounded backoff.
+- Two development questions answered by the model: both validated and executed; both scored correct, but one (overall late rate) applied the analysis window on its own and passed only within the rounding tolerance.
+
+**Decisions and open issues**
+- Default thinking level `low`; thinking tokens derived from `total_tokens`.
+- Before M5: clarify in the glossary when the analysis window applies (totals vs trends), so model and references use the same scope.
+- Known comparer limitation: a 0.02-point scope difference on a percentage passes the tolerance; such cases are tagged manually in M5 review.
+- Still to record: `gemini-3.8-flash` free-tier limits and one successful call.
+
+**API usage:** 11 requests, about 7,500 tokens, **$0.00 billed** (notional paid-tier cost under $0.01).
 
 ## 2026-10-15 — Provider change: DeepSeek to Gemini (free tier)
 
