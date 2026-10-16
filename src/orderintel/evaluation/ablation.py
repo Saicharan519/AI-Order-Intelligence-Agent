@@ -188,7 +188,9 @@ def summarise(config, split, model, started, results: list[ItemResult]) -> RunSu
 
 def save(summary: RunSummary, provider: str) -> Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = RESULTS_DIR / f"{summary.split}_{summary.config}_{provider}.json"
+    path = RESULTS_DIR / (
+        f"{summary.split}_{summary.config}_{provider}_{summary.prompt_version}.json"
+    )
     path.write_text(
         json.dumps(asdict(summary), indent=1, ensure_ascii=False, default=str),
         encoding="utf-8",

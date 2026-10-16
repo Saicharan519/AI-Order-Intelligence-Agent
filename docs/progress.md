@@ -2,7 +2,23 @@
 
 ## Current milestone
 
-**M5 in progress: first development-split run done (prompt `sqlgen-v1`).** Next: owner decides between one prompt iteration on the development split (output-format discipline) and going straight to the single test-split run.
+**M5 in progress: development-split tuning finished; final prompt `sqlgen-v1` selected by a pre-declared rule.** Next: the single test-split run of A to D (expected $0.009) after the owner's approval.
+
+## 2026-10-16 — M5 part 3: prompt iteration `sqlgen-v2` (owner-approved) and prompt selection
+
+`sqlgen-v2` (`prompts/sqlgen_rules_v2.md`) added output-shape rules: no helper columns, one row/one column for single values, boolean labels for yes/no groups, months as dates. Rerun of A to D on the development split at 11:11 UTC; manual review in `eval/reviews/dev_sqlgen-v2_tags.yaml`.
+
+| Prompt | A | B | C | D | C/D data correct after review |
+|---|---|---|---|---|---|
+| `sqlgen-v1` | 21/36 | 31/36 | 34/36 | 34/36 | 36/36 |
+| `sqlgen-v2` | 21/36 | 34/36 | 32/36 | 32/36 | 36/36 |
+
+- v2 fixed the earlier format misses (extra count columns, text labels) but caused new ones in C and D: years labelled as dates (`2017-01-01` instead of `2017`) and supporting values dropped ("biggest market" returned only `SP`). B gained 3 (its format misses disappeared); its two real errors remain.
+- With either prompt, C and D made no analytical errors; only format compliance moved.
+- **Decision:** iteration stopped after 2 of the 3 allowed rounds, because further rules would fit the prompt to the exact shape of 36 development references. Final prompt chosen by a rule fixed before any test run: highest strict accuracy of configuration D on the development split → **`sqlgen-v1`** (34 vs 32). Recorded in `eval/reviews/prompt_selection.yaml`, including the trade-off that v2 favoured B.
+- Result files now include the prompt version (`eval/results/dev_<config>_deepseek_<prompt>.json`); the report shows the iteration history and the selected prompt.
+
+**Cost:** this run $0.011667. Project total: **$0.024987 of the $1.90 cap** (ledger $0.024298 + calibration $0.000689).
 
 ## 2026-10-16 — M5 part 2: first ablation run, development split (owner-approved)
 

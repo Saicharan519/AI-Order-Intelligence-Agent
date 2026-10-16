@@ -6,6 +6,15 @@ Note on configuration D: its first request is identical to configuration C's, so
 
 ## Development split (36 answerable items; prompt tuning allowed)
 
+Prompt iterations (strict correct):
+
+| Prompt | A | B | C | D |
+|---|---|---|---|---|
+| `sqlgen-v1` | 21/36 | 31/36 | 34/36 | 34/36 |
+| `sqlgen-v2` | 21/36 | 34/36 | 32/36 | 32/36 |
+
+Selected prompt `sqlgen-v1` (rule: `eval/reviews/prompt_selection.yaml`):
+
 | Config | Data the model sees | Correct | Accuracy (95% CI) | Ran | Repairs | Calls (cached) | Cost | p50 / p95 latency |
 |---|---|---|---|---|---|---|---|---|
 | A | raw DDL | 21/36 | 58% (42%-73%) | 36/36 | 0 | 36 (0) | $0.0042 | 1261 / 2012 ms |

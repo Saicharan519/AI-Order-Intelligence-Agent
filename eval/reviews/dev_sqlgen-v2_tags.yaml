@@ -1,0 +1,36 @@
+# Manual failure tags for the development-split run with prompt sqlgen-v2 (2026-10-16).
+# sqlgen-v2 added output-shape rules (no helper columns, boolean labels for yes/no groups,
+# months as dates). Tags and the "semantic" flag as in dev_sqlgen-v1_tags.yaml.
+
+A:
+  agg_03:   {tag: wrong_definition, semantic: true,  note: revenue includes freight; canceled/unavailable not excluded}
+  agg_04:   {tag: wrong_definition, semantic: true,  note: late by timestamp}
+  agg_13:   {tag: missing_filter,   semantic: true,  note: freight of canceled/unavailable orders included}
+  trend_03: {tag: wrong_definition, semantic: true,  note: late by timestamp (6.56% vs 5.70% in January); shape now correct}
+  trend_04: {tag: wrong_definition, semantic: true,  note: revenue includes freight}
+  trend_06: {tag: wrong_definition, semantic: true,  note: duplicate reviews and timestamp lateness (2.57 vs 2.27); shape now correct}
+  trend_07: {tag: wrong_definition, semantic: true,  note: revenue restricted to delivered orders}
+  trend_12: {tag: wrong_definition, semantic: true,  note: late by timestamp}
+  trap_03:  {tag: wrong_definition, semantic: true,  note: late by timestamp}
+  trap_06:  {tag: missing_filter,   semantic: true,  note: no minimum-volume rule}
+  trap_08:  {tag: wrong_definition, semantic: true,  note: any 1-star review counted, not the latest per order}
+  trap_11:  {tag: wrong_definition, semantic: true,  note: revenue includes freight and canceled orders}
+  ambig_01: {tag: missing_filter,   semantic: true,  note: canceled/unavailable orders not excluded}
+  ambig_04: {tag: output_format,    semantic: false, note: correct state (SP) but the supporting count was dropped (v2 "only requested values" rule)}
+  ambig_05: {tag: wrong_time_window, semantic: true, note: partial months included}
+
+B:
+  trap_06: {tag: join_fanout,      semantic: true, note: lateness counted per item row, not per distinct order}
+  trap_08: {tag: wrong_definition, semantic: true, note: any 1-star review counted instead of the latest review per order}
+
+C:
+  trend_04: {tag: output_format, semantic: false, note: revenue correct; year labelled as DATE 2017-01-01 instead of 2017 (v2 "dates as date values" rule)}
+  trend_10: {tag: output_format, semantic: false, note: order counts correct; year labelled as a date (same cause)}
+  ambig_01: {tag: output_format, semantic: false, note: correct category (health_beauty) but the revenue column was dropped (v2 rule)}
+  ambig_04: {tag: output_format, semantic: false, note: correct state (SP) but the supporting value was dropped (v2 rule)}
+
+D:
+  trend_04: {tag: output_format, semantic: false, note: identical to C (cached first attempt, no rejection)}
+  trend_10: {tag: output_format, semantic: false, note: identical to C}
+  ambig_01: {tag: output_format, semantic: false, note: identical to C}
+  ambig_04: {tag: output_format, semantic: false, note: identical to C}

@@ -20,13 +20,41 @@ ORDER = ["A", "B", "C", "D"]
 CATEGORIES = [c for c in CATEGORY_COUNTS if c != "out_of_scope"]
 
 
-def load(split: str, provider: str = "deepseek") -> dict[str, dict]:
+def prompt_versions(split: str, provider: str = "deepseek") -> list[str]:
+    found = {p.stem.rsplit("_", 1)[1] for p in RESULTS.glob(f"{split}_*_{provider}_*.json")}
+    return sorted(found)
+
+
+def load(split: str, prompt: str, provider: str = "deepseek") -> dict[str, dict]:
     runs = {}
     for config in ORDER:
-        path = RESULTS / f"{split}_{config}_{provider}.json"
+        path = RESULTS / f"{split}_{config}_{provider}_{prompt}.json"
         if path.exists():
             runs[config] = json.loads(path.read_text(encoding="utf-8"))
     return runs
+
+
+def history_section(split: str) -> list[str]:
+    """Strict accuracy per configuration for every prompt version run on this split."""
+    versions = prompt_versions(split)
+    if len(versions) < 2:
+        return []
+    lines = [
+        "Prompt iterations (strict correct):",
+        "",
+        "| Prompt | " + " | ".join(ORDER) + " |",
+        "|---|" + "---|" * len(ORDER),
+    ]
+    for v in versions:
+        runs = load(split, v)
+        lines.append(
+            f"| `{v}` | "
+            + " | ".join(
+                f"{runs[c]['correct']}/{runs[c]['n']}" if c in runs else "-" for c in ORDER
+            )
+            + " |"
+        )
+    return lines + [""]
 
 
 def pct(x: float) -> str:
@@ -135,9 +163,16 @@ def apply_tags(runs: dict[str, dict], tags: dict) -> None:
 
 
 def main() -> int:
-    dev = load("dev")
-    prompt = next(iter(dev.values()))["prompt_version"] if dev else "sqlgen-v1"
+    versions = prompt_versions("dev")
+    selection = PROJECT_ROOT / "eval" / "reviews" / "prompt_selection.yaml"
+    if selection.exists():
+        prompt = yaml.safe_load(selection.read_text(encoding="utf-8"))["final_prompt"]
+    else:
+        prompt = versions[-1] if versions else "sqlgen-v1"
+    dev = load("dev", prompt)
     apply_tags(dev, load_tags("dev", prompt))
+    test_versions = prompt_versions("test")
+    test = load("test", test_versions[-1]) if test_versions else {}
     out = [
         "# Ablation results",
         "",
@@ -151,11 +186,14 @@ def main() -> int:
         "",
         "## Development split (36 answerable items; prompt tuning allowed)",
         "",
+        *history_section("dev"),
+        f"Selected prompt `{prompt}` (rule: `eval/reviews/prompt_selection.yaml`):",
+        "",
         *section("dev", dev),
         *review_section(dev, load_tags("dev", prompt)),
         "## Test split (18 answerable items; frozen, run once per configuration)",
         "",
-        *section("test", load("test")),
+        *section("test", test),
     ]
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")

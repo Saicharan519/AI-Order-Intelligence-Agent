@@ -22,11 +22,11 @@ from functools import lru_cache
 from orderintel.config import PROJECT_ROOT
 from orderintel.guard.allowlists import load_allowlist
 
-PROMPT_VERSION = "sqlgen-v1"
+PROMPT_VERSION = "sqlgen-v1"  # final prompt: eval/reviews/prompt_selection.yaml
 SQLGEN_MAX_TOKENS = 800
 CONFIGS = ("A", "B", "C", "D")
 
-RULES_FILE = PROJECT_ROOT / "prompts" / "sqlgen_rules_v1.md"
+RULES_FILE = PROJECT_ROOT / "prompts" / f"{PROMPT_VERSION.replace('-', '_rules_')}.md"
 RAW_DDL_FILE = PROJECT_ROOT / "db" / "migrations" / "001_raw_schema.sql"
 GLOSSARY_FILE = PROJECT_ROOT / "glossary" / "glossary.md"
 

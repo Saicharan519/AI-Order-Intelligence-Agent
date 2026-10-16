@@ -1,0 +1,16 @@
+# Final SQL-generation prompt for the test-split run (decided 2026-10-16, before any test run).
+final_prompt: sqlgen-v1
+rule: >
+  Highest strict accuracy of configuration D (the product path) on the development split;
+  ties broken in favour of the simpler, earlier prompt. The rule was fixed before the frozen
+  test split was run.
+evidence:
+  sqlgen-v1: {A: 21/36, B: 31/36, C: 34/36, D: 34/36}
+  sqlgen-v2: {A: 21/36, B: 34/36, C: 32/36, D: 32/36}
+disclosed_trade_off: >
+  sqlgen-v2 helped configuration B (+3) and hurt C and D (-2): its output-shape rules fixed
+  some format mismatches and caused others (years labelled as dates; supporting values
+  dropped). After manual review, C and D made no analytical errors with either prompt
+  (36/36 data correct). Further iterations were stopped to avoid fitting the prompt to the
+  exact shape of 36 development references.
+iterations_used: 2 of the 3 allowed
