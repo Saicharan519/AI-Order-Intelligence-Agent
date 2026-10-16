@@ -31,4 +31,4 @@ ignore = ["S101"]  # assert is fine in tests
 
 [tool.ruff.lint.per-file-ignores]
 # Tests build SQL strings on purpose to feed attacks and fixtures to the validator.
-"tests/**" = ["S608"]
+"tests/**" = ["S608", "E501"]  # long SQL and JSON fixtures are clearer on one line

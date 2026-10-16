@@ -2,7 +2,27 @@
 
 ## Current milestone
 
-**M5 complete (pending commit).** Next: M6 (Ask mode: router, answer writer, grounding check, scope, graph).
+**M6 in progress: Ask mode built and tested with a fake model (no spend).** Next: the paid Ask evaluation over all 60 golden items plus PRD Examples 1-2 (expected $0.026) after the owner's approval.
+
+## 2026-10-16 — M6 part 1: Ask mode (no spend)
+
+**Completed**
+- Q-05 resolved: LangGraph 1.2.15; `StateGraph`, `START`/`END`, and `add_conditional_edges` with a path map behave as the design assumed (checked on the installed package).
+- `prompts/router_v1.md`, `src/orderintel/agent/router.py`: four routes; Pydantic validation (route and playbook enums, month inside 2016-09..2018-10, valid Brazilian state); any invalid reply becomes `clarify` (FR-02).
+- `src/orderintel/agent/scope.py`: period from the SQL's date comparisons (exclusive upper bounds converted, `extract(year)` handled, whole data window otherwise); definitions applied from the columns used; partial-month warnings from `data_coverage`; output component by result shape (answer card, line chart, table, bar chart for ≤ 8 groups).
+- `prompts/answer_v1.md`, `src/orderintel/agent/answer.py`: answer writer (≤ 50 rows to the model; tables and charts rendered by code).
+- `src/orderintel/agent/grounding.py`: number grounding (cells at displayed precision, abbreviations such as R$498k, shares, differences, ratios, percentage changes, question and scope numbers, small integers, trailing-zero roundings) and a causal-language lint.
+- `src/orderintel/agent/ask.py`: LangGraph wiring of plain node functions: route → SQL (config D path: validator, executor, ≤ 2 repairs) → answer writer → grounding + lint, with one regeneration; failures and refusals return no fabricated answer. Investigate is a placeholder until M7.
+- `src/orderintel/api/schemas.py`: response contract (technical design section 9).
+- `eval/run_ask_eval.py`: routing (SC-07), faithfulness (SC-06), SQL correctness of answered items, latency (SC-10), cost; writes `eval/reports/ask_eval.md`.
+
+**Tests (actually run):** full suite 515 passed, 1 skipped; new: 13 router, 22 grounding/lint, 12 scope/component unit tests; 10 end-to-end Ask tests with a role-aware fake model (grounded answer; one regeneration fixes an untraced number; a persistent one becomes a visible warning; causal wording flagged; refusal and invalid router reply run no SQL; SQL failure after repairs gives no answer; declined SQL; investigate placeholder; line chart and partial-month warnings).
+
+**Decision (T-6.6, provisional until measured):** router and SQL generation stay separate calls. The router prompt is small and needs no schema, so a separate call is cheap; merging would put the whole schema into every refusal. Revisited after the paid run with measured cost and latency.
+
+**Deferred:** request-level trace rows (`trace.requests` currently holds one row per LLM call, which the budget guard uses); the request/step trace recorder is wired in M9 (T-9.2).
+
+**API cost incurred in this part:** $0.00.
 
 ## 2026-10-16 — M5 part 4: the single test-split run (headline result, owner-approved)
 
