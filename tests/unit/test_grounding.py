@@ -98,6 +98,14 @@ def test_methodological_because_is_not_causal():
     assert causal_findings("Scores fell because deliveries were late.") == ["because"]
 
 
+def test_negated_cause_disclaimer_is_not_causal():
+    # regression (M7 eval, inv_rev_01..04)
+    assert causal_findings("Scores are associations, not proof of cause.") == []
+    assert causal_findings("The data does not establish causation.") == []
+    assert causal_findings("Not proof of cause; scores fell because orders were late.") == ["because"]
+    assert causal_findings("Late delivery caused the drop.") == ["caused"]
+
+
 def test_causal_lint():
     assert causal_findings(
         "Late deliveries drove low scores because carriers slowed, due to demand."

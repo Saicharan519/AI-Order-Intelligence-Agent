@@ -2,7 +2,29 @@
 
 ## Current milestone
 
-**M7 part 1 built and tested without spend.** Next: the paid investigation evaluation (15 cases + 5 follow-ups, expected $0.013) after the owner's approval; then M7 part 2 (synthetic mini fixture with the two planted anomalies).
+**M7 part 1 built and evaluated.** Next: M7 part 2 (synthetic mini fixture with the two planted anomalies; no spend).
+
+## 2026-10-16 — M7 part 1: investigation evaluation (owner-approved)
+
+Run at 12:55 UTC (off-peak): 15 investigation cases plus 5 follow-ups through the full Ask graph, checked against the independent labels. Results `eval/results/investigation_deepseek.json`; report `eval/reports/investigation_report.md`.
+
+| Check | Result | Target (SC-08) |
+|---|---|---|
+| Routing (playbook, period, state exact; no investigation when none applies) | **15/15** | — |
+| Narration numbers all traced to the findings | **13/13** | all cases — met |
+| Verdict equals the independent label | **13/13** | — |
+| Top driver agrees, positive cases | **9/9** | ≥ 90% — met |
+| Negative controls report nothing notable | **4/4** | all — met |
+| Narrations with no warning | 9/13 with the original lint; **13/13** after the fix below | — |
+| Follow-ups kept the inherited scope / answered correctly | **5/5** / **5/5** | — |
+| Planted anomalies | not run (M7 part 2) | 2/2 |
+| Cost | $0.0084 for 20 questions | — |
+
+**Checker false positive found and fixed (after the run, with a regression test):** all four low-review narrations carried the caveat "associations with delivery outcomes, not proof of cause", and the causal lint flagged the word "cause". A negated noun ("not … cause", "no … causation", up to three words apart) is now treated as a disclaimer; "because", "caused", "drove" and the other claim forms are still flagged, also in the same sentence. `eval/run_investigation_eval.py --recheck` re-applied the lint to the stored narrations without model calls: exactly these four warnings cleared; the original warnings stay in the results JSON as `warnings_at_run`. The regeneration decisions during the run were made by the original lint: all four review narrations were regenerated once (3 calls instead of 2), most likely because of this false positive, and the disclaimer survived the regeneration. Cost of the false positive: about $0.001 and 2-3 s per case.
+
+**Tests (actually run):** full suite 543 passed, 0 skipped (1 new regression test); ruff clean on the changed files.
+
+**API cost:** this run $0.008447. Project total **$0.054571 of the $1.90 cap** (ledger $0.053882 + calibration $0.000689).
 
 ## 2026-10-16 — M7 part 1: Investigate mode (no spend)
 

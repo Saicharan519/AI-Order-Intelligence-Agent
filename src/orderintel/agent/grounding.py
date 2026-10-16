@@ -192,15 +192,21 @@ def pair_derivations(a: float, b: float) -> set[float]:
 
 
 METHOD_RE = re.compile(r"\b(excluded|included|filtered|omitted|removed|not shown)\b", re.I)
+# A negated noun "cause" is a disclaimer, not a claim: "associations, not proof of cause".
+DISCLAIMER_RE = re.compile(
+    r"\b(?:not|no|cannot|can't|never)\s+(?:\w+\s+){0,3}?(?:cause|causation)\b", re.I
+)
 
 
 def causal_findings(prose: str) -> list[str]:
     """Causal wording, except in sentences that explain a methodological choice
-    ("months were excluded because data there is sparse")."""
+    ("months were excluded because data there is sparse") and in disclaimers that negate
+    the noun "cause" ("not proof of cause")."""
     found = set()
     for sentence in re.split(r"(?<=[.;!?])\s+|\n", prose):
         if METHOD_RE.search(sentence):
             continue
+        sentence = DISCLAIMER_RE.sub(" ", sentence)
         found.update(m.group(0).lower() for m in CAUSAL_RE.finditer(sentence))
     return sorted(found)
 
