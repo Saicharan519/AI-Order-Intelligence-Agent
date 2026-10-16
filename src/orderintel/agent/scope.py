@@ -165,6 +165,9 @@ def _is_date(v) -> bool:
     return isinstance(v, dt.date) or (isinstance(v, str) and bool(DATE_RE.match(v)))
 
 
+RATE_COLUMN_RE = re.compile(r"rate|pct|percent|share", re.I)
+
+
 def choose_components(columns: list[str], rows: list[tuple]) -> list[dict]:
     if not rows:
         return [{"type": "text", "variant": "empty", "text": "No rows matched the filters."}]
@@ -178,12 +181,15 @@ def choose_components(columns: list[str], rows: list[tuple]) -> list[dict]:
     ]
     table = {"type": "table", "columns": columns, "rows": [list(r) for r in rows]}
     if all(_is_date(v) for v in first) and numeric_cols:
+        # Rates and counts have different scales: when both are present, the line chart shows
+        # the rates only (the counts stay in the table). Found in the M9 end-to-end check.
+        rates = [i for i in numeric_cols if RATE_COLUMN_RE.search(columns[i])]
         return [
             {
                 "type": "chart",
                 "kind": "line",
                 "x": columns[0],
-                "y": [columns[i] for i in numeric_cols],
+                "y": [columns[i] for i in (rates or numeric_cols)],
             },
             table,
         ]

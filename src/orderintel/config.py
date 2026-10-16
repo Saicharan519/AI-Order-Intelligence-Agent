@@ -49,6 +49,14 @@ class Settings(BaseSettings):
 
     llm_cache_dir: Path = PROJECT_ROOT / "eval" / "cache" / "llm"
 
+    # API and public-demo protections (technical design 10.4). With no access code set,
+    # every protected endpoint refuses (fail closed).
+    access_code: SecretStr | None = None
+    rate_limit_per_ip_per_min: int = 10
+    rate_limit_global_per_min: int = 60
+    llm_enabled: bool = True  # kill switch: false blocks every LLM call from the API
+    api_url: str = "http://127.0.0.1:8000"  # where the UI finds the API
+
 
 @lru_cache
 def get_settings() -> Settings:

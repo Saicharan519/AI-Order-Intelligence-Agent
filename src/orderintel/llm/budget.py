@@ -8,6 +8,7 @@ max_tokens); a breach raises and no request is sent.
 
 from __future__ import annotations
 
+import contextvars
 import datetime as dt
 import json
 import uuid
@@ -15,6 +16,13 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from orderintel.llm.pricing import Usage
+from orderintel.redact import redact
+
+# The user request being served, if any: LLM calls made while it is set are linked to it
+# (trace.requests.parent_id). Set by orderintel.trace.recorder.
+CURRENT_REQUEST: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "current_request", default=None
+)
 
 
 class LimitExceeded(Exception):
@@ -89,15 +97,16 @@ class PostgresLedger:
             conn.execute(
                 """
                 INSERT INTO trace.requests (id, created_at, config_name, model, question, status,
-                    latency_ms, tokens_in, tokens_cache_hit, tokens_out, cost_usd, response, error)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    latency_ms, tokens_in, tokens_cache_hit, tokens_out, cost_usd, response, error,
+                    kind, parent_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'llm_call', %s)
                 """,
                 (
                     uuid.uuid4(),
                     entry.created_at,
                     entry.config_name,
                     entry.model,
-                    entry.question,
+                    redact(entry.question),
                     entry.status,
                     entry.latency_ms,
                     u.prompt_tokens,
@@ -110,7 +119,8 @@ class PostgresLedger:
                             "cache_miss_tokens": u.cache_miss_tokens,
                         }
                     ),
-                    entry.error,
+                    redact(entry.error),
+                    CURRENT_REQUEST.get(),
                 ),
             )
 

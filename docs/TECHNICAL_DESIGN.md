@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.8 |
+| Version | 1.9 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -446,9 +446,13 @@ Second provider (F-16, comparison only): the Gemini API free tier through its Op
 
 An access-code header, per-IP and global rate limits (in-memory token bucket), a daily spend cap, a small provider balance (which caps the possible loss), a kill switch (an environment flag that disables LLM calls), and key rotation after the demo window.
 
+Implementation (M9): with no `ACCESS_CODE` set, every protected endpoint refuses (fail closed); the code is compared in constant time. The UI asks the user for the code (a password field on the main page, kept in the server-side session). For local development only, `streamlit run src/orderintel/ui/app.py -- --local` makes the UI server send the code from `.env` itself; it is accepted only when `API_URL` points to localhost, so a deployed UI always asks for it.
+
 ## 11. Observability
 
 Each request produces one `trace.requests` row and several `trace.steps` rows: prompt version, model, tokens, cost, per-step latency, validator verdicts, SQL attempts, repair count, grounding result, and the final response. A set of administrative queries reports p50 and p95 latency, cost per question, rejection rate, and failure routes. Logs are structured JSON with redaction.
+
+Implementation (M9): `trace.requests` was already the per-call LLM ledger, so migration 005 adds `kind` (`llm_call`, the default for existing rows, or `request`) and `parent_id`. A request row is written before the agent runs (zero cost, enforced by a check constraint); the ledger links every LLM call made meanwhile through a context variable; `trace.spend` counts LLM calls only, so the budget totals did not change. Everything written to traces and logs passes `orderintel.redact` first. Queries: `src/orderintel/trace/queries.py`, `scripts/trace_report.py`.
 
 ## 12. Testing strategy
 
@@ -507,7 +511,7 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | Q-04 | `sqlglot` versus `pglast` on the attack cases | Resolved in M4: sqlglot primary, pglast second opinion (`docs/parser_decision.md`) |
 | Q-05 | LangGraph API at installation time | M6 |
 | Q-06 | Baseline accuracy and whether the initial targets need revision | M5 |
-| Q-08 | Streamlit sufficiency for the four components | M9 |
+| Q-08 | Streamlit sufficiency for the four components | Resolved in M9: sufficient. Table, line and bar chart, answer card, and report all render natively; two display fixes were needed (escaping `$`, rate-only line charts) |
 | Q-09 | HTTPS strategy for the public demo | M11 |
 | — | Whether to merge router and SQL generation into one call | M6, from measured cost and accuracy |
 
@@ -522,5 +526,6 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.4 | 2026-10-15 | M4: pglast added as a second-opinion parser (Q-04 resolved); validator implementation notes; EXPLAIN ceiling calibrated (250,000). |
 | 1.5 | 2026-10-15 | Provider changed to the Gemini API free tier (DeepSeek top-up failed). |
 | 1.6 | 2026-10-16 | DeepSeek restored as the primary provider (version 1.4 text restored) after the top-up succeeded. Added: verified thinking-disable parameter, Gemini free tier as optional second provider, optional `GEMINI_API_KEY`, bounded retries on 429 and 503. |
+| 1.9 | 2026-10-16 | M9: request traces (migration 005, `kind` and `parent_id`), redaction module, access code fail-closed and local UI mode, Q-08 resolved. Component rule refined: a time series with both rates and counts charts the rates only. |
 | 1.8 | 2026-10-16 | Section 7.5 implementation notes: injtest schema (migration 004), JSON-action tool loop with a turn cap, benign control case. |
 | 1.7 | 2026-10-16 | Mini fixture implemented as a seeded generator plus a separate `orderintel_mini` database; the late-delivery playbook gains a `seller_rank` step (sellers ranked by excess late orders, at least 30 orders in the period) so a seller-level anomaly is named. |

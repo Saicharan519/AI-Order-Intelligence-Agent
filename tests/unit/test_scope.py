@@ -88,6 +88,14 @@ def test_component_time_series_is_line_chart():
     assert c[1]["type"] == "table"
 
 
+def test_line_chart_plots_rates_not_counts_when_both_present():
+    # regression (M9 end-to-end check, PRD Example 2): counts flattened the rate line
+    rows = [(dt.date(2017, m, 1), 4000 + m, 200 + m, 5.0 + m / 10) for m in range(1, 13)]
+    c = choose_components(["month", "delivered_orders", "late_orders", "late_rate_pct"], rows)
+    assert c[0]["y"] == ["late_rate_pct"]
+    assert c[1]["columns"] == ["month", "delivered_orders", "late_orders", "late_rate_pct"]
+
+
 def test_component_few_groups_table_plus_bar():
     rows = [("SP", 41746), ("RJ", 12852), ("MG", 11635)]
     c = choose_components(["state", "orders"], rows)

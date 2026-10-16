@@ -2,7 +2,37 @@
 
 ## Current milestone
 
-**M8 complete: SC-02 met, 0 of 44 attack cases succeeded.** Next: M9 (API, trace recorder, UI).
+**M9 complete:** API, traces, and UI built and checked end to end with the three PRD examples. Next: M10 (CI, variance, model comparison, README).
+
+## 2026-10-16 — M9: API, tracing, and UI (owner-approved end-to-end check)
+
+**Completed**
+- `src/orderintel/api/app.py` (FastAPI): `POST /v1/ask`, `GET /v1/requests/{id}`, `POST /v1/sessions/{id}/scope/clear`, `GET /v1/health`, `GET /v1/budget`. Access code in `X-Access-Code`, constant-time comparison, fail closed when unset; per-IP and global token-bucket rate limits with `Retry-After`; `LLM_ENABLED` kill switch; structured errors only (`budget_exhausted`, `provider_error`, `rate_limited`, `invalid_request` without echoing input, `internal_error` without details); structured, redacted JSON logs.
+- Request traces: migration `005_request_traces.sql` (`kind`, `parent_id`; `trace.spend` counts LLM calls only; budget totals identical before and after, $0.059434). `src/orderintel/trace/recorder.py` writes the request row first, links every LLM call through a context variable, then stores route, status, latency, tokens, scope, the response, and steps (llm, validator, sql or playbook, grounding, lint). `src/orderintel/redact.py` redacts every configured secret before anything is written. Admin queries: `scripts/trace_report.py`.
+- `src/orderintel/ui/` (Streamlit): access code (main page, password field), question box, the four components (answer card, table, line or bar chart, report), notes and caveats, scope panel and scope bar with Clear scope, evidence panel (SQL, parameters, rows preview, validator result, failed attempts, latency), follow-up buttons, cost and latency line, a message for every error code and non-ok status, and the untraced-number warning. Local mode (`-- --local`) for development only.
+- Tests: 22 API contract, protection, and tracing tests (fake model billed at $0, test rows deleted); 15 headless UI tests (AppTest) that render REAL API responses produced by the actual API, agent, and database.
+
+**End-to-end check (real model, real API and UI in the browser pane; 15:10 to 15:40 UTC, off-peak)**
+
+| Example | Result | Model calls | Cost |
+|---|---|---|---|
+| 1. Top 5 categories by revenue in 2017 | table + bar chart; bed_bath_table R$497,971, watches_gifts R$486,519, health_beauty R$481,143, sports_leisure R$447,547, computers_accessories R$400,491 (PRD figures) | 3, all cached (M6) | $0 |
+| 2. How is the late-delivery rate trending? | line chart over 20 months; spikes November 2017 12.4%, February 2018 14.13%, March 2018 18.96% | 3, all cached | $0 |
+| 3. Why was March 2018 so bad for deliveries? | report: 19.0% vs 5.8%, 1,328 of 7,003, top driver carrier transit, RJ/SP/MG, 466 sellers (PRD figures); scope bar shown; 7 evidence queries | 2 (1 cached) | $0.00033 |
+
+Trace report afterwards: 6 API requests, p50 0.5 s, p95 5.7 s, 0% validator rejections; a scan of every recent trace row and step found no secret value.
+
+**Found during the check and fixed (each with a regression test)**
+- Dollar signs: Streamlit Markdown read "R$497,971 ... R$486,519" as a LaTeX formula and garbled the notes. All rendered text now escapes `$`; checked in the browser (no math elements left).
+- Line chart scale: Example 2 plotted delivered and late order counts with the rate on one axis, flattening the rate. Time series with both rates and counts now chart the rates only (counts stay in the table). This refines the PRD 8.1 component rule; recorded in the technical design.
+- Scope bar timing: the bar appeared only one interaction after the investigation (found by the UI tests); it is now filled after the question runs.
+- Access code entry: the field was in the collapsible sidebar, which is hidden in a narrow window, and the first attempt was sent empty (rejected by the API with no model call). The field is now on the main page.
+
+**Known limitations:** the Example 3 narration says the pattern was "systemic rather than confined to a few states" and also that it was "concentrated geographically"; both are supported by different findings (23.7% excluding the top two states; RJ, MG, SP excess), but the wording is contradictory. Rate limits and sessions are in memory (one process).
+
+**Tests (actually run):** full suite 616 passed, 0 skipped; ruff clean; secret scan passed.
+
+**API cost:** this check $0.000331. Project total **$0.060454 of the $1.90 cap** (ledger $0.059765 + calibration $0.000689).
 
 ## 2026-10-16 — M8: safety suite (owner-approved run, 3 repetitions)
 

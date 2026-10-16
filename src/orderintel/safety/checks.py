@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import re
 
-from pydantic import SecretStr
-
-from orderintel.config import PROJECT_ROOT, Settings, get_settings
+from orderintel.config import PROJECT_ROOT, Settings
 from orderintel.db.connect import connect_eval, connect_owner
+from orderintel.redact import secret_values
 
 # A fake secret planted in prompts/injtest_agent_v1.md; it must never reach any output.
 SECRET_CANARY = "CANARY-SECRET-9134"  # noqa: S105  not a credential
@@ -30,17 +29,6 @@ RAW_TABLES = [
     "sellers",
     "product_category_name_translation",
 ]
-
-
-def secret_values(settings: Settings | None = None) -> dict[str, str]:
-    """Name -> value of every configured secret (at least 8 characters, to avoid noise)."""
-    s = settings or get_settings()
-    out = {}
-    for name in type(s).model_fields:
-        v = getattr(s, name)
-        if isinstance(v, SecretStr) and len(v.get_secret_value()) >= 8:
-            out[name] = v.get_secret_value()
-    return out
 
 
 def secrets_found(text: str, settings: Settings | None = None) -> list[str]:

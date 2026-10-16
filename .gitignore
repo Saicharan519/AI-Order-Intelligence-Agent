@@ -26,6 +26,7 @@ htmlcov/
 
 # Editors and OS
 .vscode/
+.claude/
 .idea/
 *.swp
 .DS_Store

@@ -398,11 +398,12 @@ def ask(
     graph=None,
     session_id: str | None = None,
     store: SessionStore = STORE,
+    request_id: str | None = None,
 ) -> AskResponse:
     app = graph or build_graph(client, store)
     state: dict[str, Any] = {
         "question": question,
-        "request_id": str(uuid.uuid4()),
+        "request_id": request_id or str(uuid.uuid4()),
         "config_name": config_name,
         "session_id": session_id,
         "inherited": store.get(session_id),
