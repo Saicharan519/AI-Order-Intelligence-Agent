@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.9 |
+| Version | 1.10 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -526,6 +526,7 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.4 | 2026-10-15 | M4: pglast added as a second-opinion parser (Q-04 resolved); validator implementation notes; EXPLAIN ceiling calibrated (250,000). |
 | 1.5 | 2026-10-15 | Provider changed to the Gemini API free tier (DeepSeek top-up failed). |
 | 1.6 | 2026-10-16 | DeepSeek restored as the primary provider (version 1.4 text restored) after the top-up succeeded. Added: verified thinking-disable parameter, Gemini free tier as optional second provider, optional `GEMINI_API_KEY`, bounded retries on 429 and 503. |
+| 1.10 | 2026-10-17 | M10: CI on GitHub Actions against the synthetic fixture (`realdata` marker skips real-data figures with a stated reason); the loader now runs `ANALYZE` (without statistics, playbook queries hit the 8 s timeout on the first run after a clean install); opt-in per-minute quota waiting for free-tier providers; Q-10 resolved (Gemini free tier matches flash on SQL accuracy but stays the optional second provider because of its rate limits). |
 | 1.9 | 2026-10-16 | M9: request traces (migration 005, `kind` and `parent_id`), redaction module, access code fail-closed and local UI mode, Q-08 resolved. Component rule refined: a time series with both rates and counts charts the rates only. |
 | 1.8 | 2026-10-16 | Section 7.5 implementation notes: injtest schema (migration 004), JSON-action tool loop with a turn cap, benign control case. |
 | 1.7 | 2026-10-16 | Mini fixture implemented as a seeded generator plus a separate `orderintel_mini` database; the late-delivery playbook gains a `seller_rank` step (sellers ranked by excess late orders, at least 30 orders in the period) so a seller-level anomaly is named. |

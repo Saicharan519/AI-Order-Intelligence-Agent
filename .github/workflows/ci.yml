@@ -1,0 +1,75 @@
+# Continuous integration (T-10.1): lint, secret scan, and the test suite against a
+# PostgreSQL service loaded with the synthetic mini fixture. No LLM calls: the model is
+# faked in tests, no API key exists here, and tests marked `paid` never run by default.
+# Tests marked `realdata` need the real Olist CSVs (not redistributed) and are skipped
+# with a stated reason; everything else runs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          # Throwaway superuser for this run's container only; not a project secret.
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: orderintel_ci
+      POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # No LLM API key is configured, so no real model call is possible here.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Random role passwords for this run
+        run: |
+          for name in OI_OWNER OI_AGENT OI_TRACE OI_EVAL OI_INJTEST; do
+            value="$(openssl rand -hex 16)"
+            echo "::add-mask::$value"
+            echo "${name}_PASSWORD=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Secret scan
+        run: python scripts/check_secrets.py --all
+
+      - name: Build the CI database from the synthetic fixture
+        run: python -m scripts.build_mini_db --db orderintel_ci
+
+      - name: Tests
+        run: python -m pytest -q -rs

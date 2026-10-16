@@ -26,6 +26,7 @@ def run(sql: str, **kw):
     return execute(r.validated, **kw)
 
 
+@pytest.mark.realdata
 @pytest.mark.parametrize("name", list(VIEW_QUERIES))
 def test_legitimate_queries_execute_under_the_ceiling(name):
     res = run(VIEW_QUERIES[name])
@@ -33,6 +34,7 @@ def test_legitimate_queries_execute_under_the_ceiling(name):
     assert res.explain_cost < ex.DEFAULT_COST_CEILING / 5  # comfortable margin
 
 
+@pytest.mark.realdata
 def test_result_shape():
     res = run("SELECT customer_state, count(*) AS n FROM orders GROUP BY 1 ORDER BY 2 DESC LIMIT 3")
     assert res.columns == ["customer_state", "n"]
@@ -52,6 +54,7 @@ def test_exactly_cap_rows_is_not_truncated():
     assert res.row_count == val.ROW_CAP and not res.truncated
 
 
+@pytest.mark.realdata
 @pytest.mark.parametrize(
     "sql",
     [
@@ -71,6 +74,7 @@ def test_server_timeout_cancels_slow_query():
     assert e.value.code == "timeout"
 
 
+@pytest.mark.realdata
 def test_client_timer_cancels_when_server_timeout_is_missing(monkeypatch):
     # Simulate a server timeout that never fires: the client-side timer must cancel.
     real_set_local = ex._set_local
@@ -99,12 +103,16 @@ def test_only_validated_sql_is_accepted():
 def test_read_only_even_if_a_write_were_minted():
     # Bypass the validator on purpose (test-only access to its private token) to show the
     # executor's transaction is read-only and the role lacks privileges anyway.
+    def sellers():
+        with connect_agent() as conn:
+            return conn.execute("SELECT count(*) FROM analytics.sellers").fetchone()[0]
+
+    before = sellers()  # compared before/after, so the test holds on any dataset (CI)
     forged = val.ValidatedSQL("DELETE FROM analytics.sellers", val.ROW_CAP, "", val._TOKEN)
     with pytest.raises(ExecutionError) as e:
         execute(forged)
     assert e.value.code == "database_error"
-    with connect_agent() as conn:
-        assert conn.execute("SELECT count(*) FROM analytics.sellers").fetchone()[0] == 3095
+    assert before > 0 and sellers() == before
 
 
 def test_errors_do_not_leak_connection_details():

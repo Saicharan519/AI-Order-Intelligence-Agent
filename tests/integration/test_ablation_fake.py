@@ -29,6 +29,7 @@ def reply(sql):
     return {"sql": sql, "assumptions": []}
 
 
+@pytest.mark.realdata
 def test_config_a_correct_raw_sql_scores_correct():
     client, _ = fake_client(lambda q, n: reply(GOOD_RAW_SQL))
     run = run_question(client, "A", CANCELED.question)
@@ -50,13 +51,18 @@ def test_config_a_sql_error_is_recorded_not_raised():
 
 
 def test_config_a_cannot_write_even_without_validator():
+    def sellers():
+        with connect_eval() as conn:
+            return conn.execute("SELECT count(*) FROM raw.sellers").fetchone()[0]
+
+    before = sellers()  # compared before/after, so the test holds on any dataset (CI)
     client, _ = fake_client(lambda q, n: reply("DELETE FROM raw.sellers"))
     run = run_question(client, "A", CANCELED.question)
     assert run.status == "exec_error"
-    with connect_eval() as conn:
-        assert conn.execute("SELECT count(*) FROM raw.sellers").fetchone()[0] == 3095
+    assert before > 0 and sellers() == before
 
 
+@pytest.mark.realdata
 def test_config_d_repairs_after_validator_rejection():
     # first answer uses a raw table (VR-04), the repair uses the view
     client, transport = fake_client(lambda q, n: reply(GOOD_RAW_SQL if n == 1 else GOOD_VIEW_SQL))
@@ -80,6 +86,7 @@ def test_config_d_repairs_after_bad_json():
     assert run.status == "ok" and run.attempts[0].stage == "parse_error"
 
 
+@pytest.mark.realdata
 def test_config_d_repairs_after_cost_ceiling():
     expensive = "SELECT count(*) FROM orders a JOIN orders b ON a.purchase_month = b.purchase_month"
     client, _ = fake_client(lambda q, n: reply(expensive if n == 1 else GOOD_VIEW_SQL))

@@ -2,7 +2,37 @@
 
 ## Current milestone
 
-**M9 complete:** API, traces, and UI built and checked end to end with the three PRD examples. Next: M10 (CI, variance, model comparison, README).
+**M10 complete** (CI workflow pushed but not yet run on GitHub: it runs on the next push). Next: M11, optional deployment (needs the owner's approval).
+
+## 2026-10-17 — M10: CI, variance, model comparison, README, fresh-clone test (owner-approved runs)
+
+**Completed**
+- **CI** (`.github/workflows/ci.yml`): lint, secret scan, and the test suite against a PostgreSQL 18 service loaded with the synthetic fixture (`scripts/build_mini_db.py --db orderintel_ci`). Database passwords are random per run and masked; no LLM key exists in CI. Not run on GitHub yet (it runs on the next push); simulated locally against `orderintel_ci` with no CSVs: 497 passed, 114 skipped, 0 failed.
+- **`realdata` marker** (`tests/conftest.py`): tests that check real Olist figures skip, with the reason shown, when the database does not hold the full load. Classified by running the whole suite on the synthetic database rather than by guessing. Three safety tests that used the real seller count to mean "nothing changed" now compare before and after, so they run in CI too.
+- **Cost report** (`scripts/cost_report.py` → `eval/reports/cost_report.md`) from the trace ledger, by activity and model.
+- **Evaluation flags:** `run_eval.py --model` and `--run-tag` (a repeated run can no longer overwrite the M5 headline file; tagged files refuse to overwrite); `run_investigation_eval.py --model --ids` (comparison runs go to their own file and leave the M7 report alone); opt-in per-minute quota waiting in the LLM client for the Gemini free tier.
+- **Variance and model comparison** (`eval/model_comparison.py` → `eval/reports/model_comparison.md`).
+- **README** rewritten: overview, architecture, measured results, precisely worded safety claim, limitations, cost, setup, run, tests, troubleshooting, data licence.
+
+**Results (runs at 18:30 to 18:40 UTC, off-peak)**
+
+| Run (configuration D, 18 answerable test items) | Correct | Cost |
+|---|---|---|
+| deepseek-flash run 1 (M5 headline) / run 2 / run 3 | 15 / 16 / 15 (83% to 89%) | cache / $0.0018 / $0.0018 |
+| deepseek-v4-pro | 15 | $0.0075 |
+| gemini-3.5-flash-lite (free tier) | 16 | $0 |
+
+Only `trap_14` ("best seller", ambiguous) changed across the three flash runs. deepseek-v4-pro fixed two items and broke two (`agg_11`: canceled orders in the numerator, a real error; `ambig_06`: a different "recent" window), at about 4x the cost. On five investigations it matched flash on four and misrouted `inv_none_01` ("Why did revenue fall in June 2018?") to the low-review playbook: grounded but off-topic. This exposed a gap, now listed as a limitation: no code check ties the chosen playbook to the question's topic. Decision: deepseek-flash stays primary; Gemini stays the optional second provider (Q-10 resolved).
+
+**Fresh-clone test (T-10.6, SC-11):** a clone of the repository (with the uncommitted M10 changes) in a new folder, set up by following only the README, with its own database container on port 5433 (`COMPOSE_PROJECT_NAME` set so it could not touch the developer's container), random passwords, and the CSVs copied from `data/raw/`. Every README expectation matched (five roles, five migrations, 550,759 rows, 0 failed checks). **It found a real bug:** the first test run after a clean install had failures that disappeared on a second run. Reproduced deliberately (fresh load, then tests at once): 5 failures, investigation queries cancelled at the 8 s timeout, because freshly loaded tables have no planner statistics until autovacuum runs. The loader now runs `ANALYZE` as part of the load; the same sequence then passed 15/15 at once, and the full suite in the clone passed 617/617. The API (health, access code refused without it) and the UI (HTTP 200) started with the README commands. The clone, its container, and its volume were removed afterwards.
+
+**Also found and fixed:** the M9 API and UI tests left 120 zero-cost fake LLM rows in the ledger (the cleanup matched `test:api` but the rows were named `test:api:D`); they would have counted against the Gemini daily quota. Cleanup now matches the prefix; the rows were deleted; budget totals unchanged.
+
+**Not done:** formatting is not enforced in CI (eight older files differ from the formatter; lint is enforced as planned). CI has not run on GitHub yet.
+
+**Tests (actually run):** full suite 617 passed, 0 skipped (real database); 497 passed, 114 skipped (synthetic CI database); ruff clean; secret scan passed.
+
+**API cost:** M10 runs $0.018408. Project total **$0.078862 of the $1.90 cap** (ledger $0.078173 + calibration $0.000689).
 
 ## 2026-10-16 — M9: API, tracing, and UI (owner-approved end-to-end check)
 

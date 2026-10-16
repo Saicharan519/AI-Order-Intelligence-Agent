@@ -83,9 +83,9 @@ def responses():
     }
     with connect_owner() as conn:
         conn.execute(
-            "DELETE FROM trace.requests WHERE config_name = %s AND kind = 'llm_call'", (TAG,)
+            "DELETE FROM trace.requests WHERE config_name LIKE %s AND kind = 'llm_call'", (TAG + '%',)
         )
-        conn.execute("DELETE FROM trace.requests WHERE config_name = %s", (TAG,))
+        conn.execute("DELETE FROM trace.requests WHERE config_name LIKE %s", (TAG + '%',))
     return out
 
 
@@ -233,17 +233,23 @@ def test_view_helpers():
 
 
 def test_local_mode_uses_the_server_code_without_showing_it(responses, monkeypatch):
+    # The test sets its own fake code, so it never depends on (or touches) the real one.
+    fake_code = "local-mode-test-code-not-real"
+    monkeypatch.setenv("ACCESS_CODE", fake_code)
     monkeypatch.setattr("sys.argv", ["app.py", "--local"])
-    api = FakeApi(responses)
-    at = AppTest.from_file(APP, default_timeout=90)
-    at.session_state["api"] = api
-    at.run()
-    assert not [t for t in at.text_input if t.key == "access_code"]  # no field to type into
-    at.button(key="example_0").click().run()
-    configured = get_settings().access_code
-    sent_matches = bool(configured) and api.asked[0][0] == configured.get_secret_value()
-    assert sent_matches  # compared in memory; a failure shows only False
-    assert configured.get_secret_value() not in texts(at)
+    get_settings.cache_clear()
+    try:
+        api = FakeApi(responses)
+        at = AppTest.from_file(APP, default_timeout=90)
+        at.session_state["api"] = api
+        at.run()
+        assert not [t for t in at.text_input if t.key == "access_code"]  # no field to type
+        at.button(key="example_0").click().run()
+        assert api.asked[0][0] == fake_code
+        assert fake_code not in texts(at)
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
 
 
 def test_dollar_amounts_are_not_read_as_math():

@@ -22,12 +22,13 @@ from dataclasses import dataclass, field
 from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
 
 from orderintel.config import Settings, get_settings
-from orderintel.llm.budget import Ledger, LedgerEntry, Limits, check_limits
+from orderintel.llm.budget import Ledger, LedgerEntry, LimitExceeded, Limits, check_limits
 from orderintel.llm.cache import ResponseCache, cache_key
 from orderintel.llm.pricing import Usage, cost_usd, estimate_tokens, worst_case_cost_usd
 
 RETRYABLE = (RateLimitError, InternalServerError, APIConnectionError)
 MAX_RETRIES = 2
+RPM_WAITS, RPM_WAIT_S = 3, 61.0  # up to three one-minute waits
 BACKOFF_S = (2.0, 6.0)
 
 # transport(model, messages, params) -> (content, usage_dict)
@@ -114,6 +115,7 @@ class LLMClient:
         transport: Transport | None = None,
         dry_run: bool = False,
         sleep: Callable[[float], None] = time.sleep,
+        wait_on_rpm: bool = False,
     ) -> None:
         self.cfg = cfg
         self.ledger = ledger
@@ -121,6 +123,9 @@ class LLMClient:
         self.dry_run = dry_run
         self._transport = transport
         self._sleep = sleep
+        # Free tiers limit requests per minute: when set, a quota_rpm block waits for the
+        # window instead of failing (budget caps and the daily quota still fail at once).
+        self.wait_on_rpm = wait_on_rpm
 
     def _get_transport(self) -> Transport:
         if self._transport is None:
@@ -153,7 +158,14 @@ class LLMClient:
         if self.dry_run:
             return LLMResult("", self.cfg.model, dry_run=True, estimated_cost_usd=worst)
 
-        check_limits(self.ledger, self.cfg.model, worst, self.cfg.limits)
+        for attempt in range(RPM_WAITS + 1):
+            try:
+                check_limits(self.ledger, self.cfg.model, worst, self.cfg.limits)
+                break
+            except LimitExceeded as e:
+                if not (self.wait_on_rpm and e.code == "quota_rpm" and attempt < RPM_WAITS):
+                    raise
+                self._sleep(RPM_WAIT_S)
 
         transport = self._get_transport()
         started = time.perf_counter()

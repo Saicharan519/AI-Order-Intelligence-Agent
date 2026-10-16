@@ -49,6 +49,7 @@ def test_attack_and_investigation_drafts_meet_minimum_sizes():
     assert len([c for c in cases if "fixture" in c]) == 2
 
 
+@pytest.mark.realdata
 @pytest.mark.parametrize("item", [i for i in ITEMS if i.answerable], ids=lambda i: i.id)
 def test_every_reference_runs_and_is_non_trivial(item):
     with connect_eval(autocommit=True) as conn:
@@ -63,6 +64,7 @@ def frames():
     return crosscheck.load_frames()
 
 
+@pytest.mark.realdata
 def test_pandas_crosscheck_agrees(frames):
     results = crosscheck.run(frames)
     assert len(results) >= 20
@@ -94,6 +96,7 @@ def _wrong_partial_months(f):
     return [(round(o.groupby(crosscheck.months(o)).size().mean(), 2),)]
 
 
+@pytest.mark.realdata
 @pytest.mark.parametrize(
     ("item_id", "wrong"),
     [

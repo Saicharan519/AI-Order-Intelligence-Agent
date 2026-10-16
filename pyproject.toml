@@ -18,6 +18,7 @@ pythonpath = ["src", "."]
 markers = [
     "integration: needs the running PostgreSQL container",
     "paid: makes real LLM API calls (never run by default)",
+    "realdata: checks figures of the real Olist data (skipped on the synthetic CI fixture)",
 ]
 addopts = "-m 'not paid'"
 

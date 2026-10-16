@@ -186,11 +186,15 @@ def summarise(config, split, model, started, results: list[ItemResult]) -> RunSu
     )
 
 
-def save(summary: RunSummary, provider: str) -> Path:
+def save(summary: RunSummary, provider: str, tag: str = "") -> Path:
+    """Results file per run; `tag` (model and/or repetition) keeps repeated runs apart."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{tag}" if tag else ""
     path = RESULTS_DIR / (
-        f"{summary.split}_{summary.config}_{provider}_{summary.prompt_version}.json"
+        f"{summary.split}_{summary.config}_{provider}_{summary.prompt_version}{suffix}.json"
     )
+    if tag and path.exists():
+        raise FileExistsError(f"{path.name} exists; use a new --run-tag")
     path.write_text(
         json.dumps(asdict(summary), indent=1, ensure_ascii=False, default=str),
         encoding="utf-8",

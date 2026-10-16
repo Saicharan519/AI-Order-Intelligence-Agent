@@ -8,6 +8,7 @@ touched: only a database whose name ends in "_mini" can be dropped here.
 Usage:
     python scripts/build_mini_db.py             # with the two planted anomalies
     python scripts/build_mini_db.py --no-plants
+    python scripts/build_mini_db.py --db orderintel_ci   # the CI database (M10)
 """
 
 from __future__ import annotations
@@ -26,19 +27,23 @@ from scripts.migrate import apply_migrations, ensure_roles
 from tests.fixtures.mini_olist.generate import generate
 
 MINI_DB = "orderintel_mini"
+DROPPABLE_SUFFIXES = ("_mini", "_ci")  # fixture databases only; the real one never matches
 
 
-def mini_settings() -> Settings:
-    return get_settings().model_copy(update={"postgres_db": MINI_DB})
+def mini_settings(db: str = MINI_DB) -> Settings:
+    return get_settings().model_copy(update={"postgres_db": db})
 
 
-def build(plants: bool = True, quiet: bool = True) -> dict[str, int]:
-    """Recreate orderintel_mini and load the fixture. Returns the loaded row counts."""
-    s = mini_settings()
-    if not s.postgres_db.endswith("_mini"):  # guard: never drop anything else
+def build(plants: bool = True, quiet: bool = True, db_name: str = MINI_DB) -> dict[str, int]:
+    """Recreate a fixture database and load the fixture. Returns the loaded row counts."""
+    s = mini_settings(db_name)
+    if not s.postgres_db.endswith(DROPPABLE_SUFFIXES):  # guard: never drop anything else
         raise SystemExit(f"refusing to rebuild {s.postgres_db!r}")
     db = sql.Identifier(s.postgres_db)
-    with connect_superuser(get_settings(), autocommit=True) as conn:
+    # Connect to the maintenance database, so the target can be dropped even when it is the
+    # configured one (CI).
+    maintenance = get_settings().model_copy(update={"postgres_db": "postgres"})
+    with connect_superuser(maintenance, autocommit=True) as conn:
         conn.execute(sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(db))
         conn.execute(sql.SQL("CREATE DATABASE {}").format(db))
 
@@ -61,12 +66,13 @@ def build(plants: bool = True, quiet: bool = True) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--no-plants", action="store_true")
+    ap.add_argument("--db", default=MINI_DB, help="database name; must end in _mini or _ci")
     args = ap.parse_args(argv)
-    counts = build(plants=not args.no_plants, quiet=False)
+    counts = build(plants=not args.no_plants, quiet=False, db_name=args.db)
     for table, n in counts.items():
         print(f"  raw.{table:<36} {n:>7,}")
     print(
-        f"built {MINI_DB} ({'no plants' if args.no_plants else 'with the two planted anomalies'})"
+        f"built {args.db} ({'no plants' if args.no_plants else 'with the two planted anomalies'})"
     )
     return 0
 

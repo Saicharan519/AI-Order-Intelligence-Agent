@@ -103,6 +103,8 @@ def main(argv=None) -> int:
     ap.add_argument("--approved", action="store_true")
     ap.add_argument("--recheck", action="store_true")
     ap.add_argument("--planted", action="store_true")
+    ap.add_argument("--model", help="model override for a comparison run (M10)")
+    ap.add_argument("--ids", help="comma-separated case ids (subset; no follow-ups)")
     args = ap.parse_args(argv)
     if args.recheck:
         return recheck()
@@ -113,12 +115,21 @@ def main(argv=None) -> int:
         for c in yaml.safe_load((GOLDEN / "investigation.yaml").read_text(encoding="utf-8"))
         if "fixture" not in c
     ]
+    comparison = bool(args.model or args.ids)
+    if args.ids:
+        wanted = set(args.ids.split(","))
+        cases = [c for c in cases if c["id"] in wanted]
+    followups = [] if comparison else FOLLOWUPS
+    out_path = OUT.with_name(f"investigation_{args.model or 'subset'}.json") if comparison else OUT
     labels = yaml.safe_load((GOLDEN / "investigation_labels.yaml").read_text(encoding="utf-8"))
     if args.estimate:
-        calls = len(cases) * 2.3 + len(FOLLOWUPS) * 3.2
+        calls = len(cases) * 2.3 + len(followups) * 3.2
+        # v4-pro costs about 4.4x flash per input token and 3.3x per output token
+        factor = 4.4 if args.model == "deepseek-v4-pro" else 1.0
         print(
-            f"{len(cases)} cases + {len(FOLLOWUPS)} follow-ups: about {calls:.0f} calls, "
-            f"expected about ${calls * 0.00025:.3f} (worst case about ${calls * 0.004:.2f})"
+            f"{len(cases)} cases + {len(followups)} follow-ups: about {calls:.0f} calls, "
+            f"expected about ${calls * 0.00025 * factor:.3f} "
+            f"(worst case about ${calls * 0.004 * factor:.2f})"
         )
         return 0
     if not args.approved:
@@ -126,7 +137,9 @@ def main(argv=None) -> int:
         return 1
 
     client = LLMClient(
-        provider_config("deepseek"), PostgresLedger(), ResponseCache(get_settings().llm_cache_dir)
+        provider_config("deepseek", model=args.model),
+        PostgresLedger(),
+        ResponseCache(get_settings().llm_cache_dir),
     )
     store = SessionStore()
     graph = build_graph(client, store)
@@ -184,7 +197,7 @@ def main(argv=None) -> int:
                 f"{r.usage.latency_ms} ms"
             )
         fus = []
-        for fu in FOLLOWUPS:
+        for fu in followups:
             r = ask(
                 client,
                 fu["question"],
@@ -229,10 +242,11 @@ def main(argv=None) -> int:
         print(f"STOPPED: {e}")
         return 1
 
-    OUT.write_text(
+    out_path.write_text(
         json.dumps(
             {
                 "run_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+                "model": client.cfg.model,
                 "cases": rows,
                 "followups": fus,
             },
@@ -243,6 +257,9 @@ def main(argv=None) -> int:
         encoding="utf-8",
         newline="\n",
     )
+    if comparison:  # the M7 report stays as it is; the comparison report reads this file
+        print(f"wrote {out_path}")
+        return 0
     write_report(rows, fus)
     return 0
 

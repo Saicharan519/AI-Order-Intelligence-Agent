@@ -9,6 +9,8 @@ Properties:
     with PostgreSQL's message naming the type and the value.
   * Verified: header names must match the table columns, and row counts must match
     the expected source counts before the transaction commits.
+  * Analysed: planner statistics are collected as part of the load, so the first
+    queries after a clean install get sensible plans.
 
 The CSVs are parsed with Python's csv module because the source mixes quoted and
 unquoted fields, has line breaks inside quoted review comments, and one file has a
@@ -140,6 +142,11 @@ def load_all(
         if wrong:
             detail = "; ".join(f"{t}: got {n:,}, expected {e:,}" for t, (n, e) in wrong.items())
             raise LoadError(f"row counts do not match, load rolled back: {detail}")
+        # Fresh tables have no planner statistics until autovacuum runs. Without them the
+        # playbook queries got plans slow enough to hit the 8 s timeout on the first run
+        # after a clean install (found by the M10 fresh-clone test), so analyse now.
+        for t in SOURCES:
+            conn.execute(sql.SQL("ANALYZE {}").format(sql.Identifier("raw", t)))
     return counts
 
 

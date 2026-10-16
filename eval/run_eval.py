@@ -155,7 +155,7 @@ def run_configs(args) -> int:
     from orderintel.llm.cache import ResponseCache
     from orderintel.llm.client import LLMClient, LLMError, provider_config
 
-    cfg = provider_config(args.provider)
+    cfg = provider_config(args.provider, model=args.model)
     ids = args.ids.split(",") if args.ids else None
     if args.estimate:
         rows = [estimate(c, args.split, cfg.model, ids) for c in args.config]
@@ -182,7 +182,7 @@ def run_configs(args) -> int:
         return 1
 
     cache = None if args.no_cache else ResponseCache(get_settings().llm_cache_dir)
-    client = LLMClient(cfg, PostgresLedger(), cache)
+    client = LLMClient(cfg, PostgresLedger(), cache, wait_on_rpm=cfg.name == "gemini")
     for config in args.config:
         print(f"== config {config} on {args.split} ({cfg.model})")
         try:
@@ -190,7 +190,9 @@ def run_configs(args) -> int:
         except (LimitExceeded, LLMError) as e:
             print(f"STOPPED: {e}")
             return 1
-        path = save(summary, cfg.name)
+        tags = [cfg.model] if args.model else []
+        tags += [args.run_tag] if args.run_tag else []
+        path = save(summary, cfg.name, "_".join(tags))
         lo, hi = summary.ci95
         print(
             f"   {summary.correct}/{summary.n} correct ({summary.accuracy:.0%}, 95% CI "
@@ -223,6 +225,14 @@ def main(argv: list[str] | None = None) -> int:
         "--confirm-test", action="store_true", help="allow the single run on the frozen test split"
     )
     parser.add_argument("--no-cache", action="store_true", help="bypass the response cache")
+    parser.add_argument(
+        "--model", help="model override, e.g. deepseek-v4-pro (default: the primary model)"
+    )
+    parser.add_argument(
+        "--run-tag",
+        help="suffix for the results file (e.g. rep2), so a repeated run never overwrites "
+        "an earlier one",
+    )
     args = parser.parse_args(argv)
     if args.freeze:
         if TEST_HASH_FILE.exists():

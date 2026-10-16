@@ -68,9 +68,9 @@ def cleanup():
     yield
     with connect_owner() as conn:
         conn.execute(
-            "DELETE FROM trace.requests WHERE config_name = %s AND kind = 'llm_call'", (TAG,)
+            "DELETE FROM trace.requests WHERE config_name LIKE %s AND kind = 'llm_call'", (TAG + '%',)
         )
-        conn.execute("DELETE FROM trace.requests WHERE config_name = %s", (TAG,))
+        conn.execute("DELETE FROM trace.requests WHERE config_name LIKE %s", (TAG + '%',))
 
 
 def trace_text(request_id: str) -> str:
@@ -166,6 +166,7 @@ def test_no_access_code_configured_fails_closed():
 # ---------- tracing (FR-15, NFR-06) ----------
 
 
+@pytest.mark.realdata
 def test_request_is_traced_end_to_end():
     c = make_client()
     body = c.post("/v1/ask", json={"question": "How many orders were canceled?"}, headers=H).json()

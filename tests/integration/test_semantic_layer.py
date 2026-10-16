@@ -11,7 +11,7 @@ import pytest
 
 from orderintel.db.connect import connect_agent
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.realdata]
 
 
 @pytest.fixture(scope="module")

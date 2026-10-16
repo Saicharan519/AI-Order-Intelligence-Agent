@@ -62,6 +62,7 @@ def run(fake, question="How many orders were canceled?", session_id=None, store=
     )
 
 
+@pytest.mark.realdata
 def test_answer_path_grounded():
     fake = RoleFake(
         ROUTE_ANSWER,
@@ -79,6 +80,7 @@ def test_answer_path_grounded():
     assert r.usage.llm_calls == 3 and r.usage.cost_usd > 0
 
 
+@pytest.mark.realdata
 def test_untraced_number_triggers_one_regeneration():
     answers = {
         1: {"headline": "650 orders were canceled."},
@@ -153,6 +155,7 @@ GOOD_NARRATION = {
 }
 
 
+@pytest.mark.realdata
 def test_investigation_runs_playbook_and_checks_narration():
     fake = RoleFake(ROUTE_MARCH, CANCELED_SQL, {}, GOOD_NARRATION)
     r = run(fake, "Why was March 2018 so bad for deliveries?")
@@ -185,6 +188,7 @@ def test_narration_with_wrong_driver_and_invented_number_is_regenerated_then_fla
     assert "different top driver" in joined and "causal" in joined and "traced" in joined
 
 
+@pytest.mark.realdata
 def test_negative_control_verdict():
     route = dict(ROUTE_MARCH, params={"period": "2017-07", "state": None})
     narration = {
@@ -233,6 +237,7 @@ def test_follow_up_that_drops_the_scope_is_flagged():
     assert any("may not apply the inherited scope" in w for w in r.warnings)
 
 
+@pytest.mark.realdata
 def test_cleared_or_other_session_has_no_inherited_scope():
     store = SessionStore()
     run(
@@ -249,6 +254,7 @@ def test_cleared_or_other_session_has_no_inherited_scope():
     assert r2.scope.filters == []
 
 
+@pytest.mark.realdata
 def test_trend_gets_line_chart_and_partial_month_warning():
     sql = {
         "sql": "SELECT purchase_month, count(*) AS orders FROM orders "

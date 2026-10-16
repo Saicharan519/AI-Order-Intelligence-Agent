@@ -172,3 +172,43 @@ def test_dry_run_makes_no_call():
     client.dry_run = True
     r = call(client)
     assert r.dry_run and r.estimated_cost_usd > 0 and transport.calls == []
+
+
+def test_rpm_block_waits_when_enabled_and_fails_otherwise():
+    from orderintel.llm.budget import LimitExceeded, Limits, MemoryLedger
+    from orderintel.llm.client import RPM_WAIT_S, LLMClient
+    from tests.fixtures.fake_llm import FakeTransport, fake_config
+
+    calls = {"n": 0}
+
+    class Ledger(MemoryLedger):
+        def count_requests(self, model, since):  # full for the first check, then free
+            calls["n"] += 1
+            return 12 if calls["n"] == 1 else 0
+
+    cfg = fake_config(Limits(max_rpm=12), name="gemini")
+    slept = []
+    ok = LLMClient(
+        cfg,
+        Ledger(),
+        None,
+        FakeTransport(lambda q, n: {"a": 1}),
+        sleep=slept.append,
+        wait_on_rpm=True,
+    )
+    ok.complete(
+        [{"role": "user", "content": "q"}], config_name="t", prompt_version="v", max_tokens=10
+    )
+    assert slept == [RPM_WAIT_S]
+
+    calls["n"] = 0
+    strict = LLMClient(
+        cfg, Ledger(), None, FakeTransport(lambda q, n: {"a": 1}), sleep=slept.append
+    )
+    import pytest
+
+    with pytest.raises(LimitExceeded) as e:
+        strict.complete(
+            [{"role": "user", "content": "q"}], config_name="t", prompt_version="v", max_tokens=10
+        )
+    assert e.value.code == "quota_rpm"
