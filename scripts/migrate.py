@@ -66,8 +66,8 @@ ROLES: dict[str, tuple[str, int, str, dict[str, str]]] = {
 }
 
 
-def ensure_roles() -> None:
-    s = get_settings()
+def ensure_roles(settings=None) -> None:
+    s = settings or get_settings()
     db = sql.Identifier(s.postgres_db)
     with connect_superuser(s, autocommit=True) as conn:
         # Access is by explicit grant only: remove the default PUBLIC privileges.
@@ -98,9 +98,9 @@ def ensure_roles() -> None:
             print(f"roles: {name} {'updated' if exists else 'created'}")
 
 
-def apply_migrations() -> None:
+def apply_migrations(settings=None) -> None:
     files = sorted(MIGRATIONS_DIR.glob("[0-9][0-9][0-9]_*.sql"))
-    with connect_owner() as conn:
+    with connect_owner(settings) as conn:
         conn.execute(
             """
             CREATE SCHEMA IF NOT EXISTS meta;

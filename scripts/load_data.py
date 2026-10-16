@@ -112,12 +112,16 @@ def load_table(conn: psycopg.Connection, table: str, path: Path) -> None:
         raise LoadError(f"raw.{table}: {e.diag.message_primary}") from e
 
 
-def load_all(data_dir: Path) -> dict[str, int]:
+def load_all(
+    data_dir: Path, settings=None, expected: dict[str, int] | None = None
+) -> dict[str, int]:
+    """Load every source file; `settings` and `expected` let the mini fixture reuse this."""
+    expected = expected or EXPECTED_ROWS
     missing = [f for f in SOURCES.values() if not (data_dir / f).is_file()]
     if missing:
         raise LoadError(f"missing files in {data_dir}: {', '.join(missing)}")
 
-    with connect_owner() as conn, conn.transaction():
+    with connect_owner(settings) as conn, conn.transaction():
         conn.execute(
             sql.SQL("TRUNCATE {} RESTART IDENTITY").format(
                 sql.SQL(", ").join(sql.Identifier("raw", t) for t in SOURCES)
@@ -127,11 +131,12 @@ def load_all(data_dir: Path) -> dict[str, int]:
             load_table(conn, table, data_dir / filename)
 
         counts = {
-            t: conn.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier("raw", t)))
-            .fetchone()[0]
+            t: conn.execute(
+                sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier("raw", t))
+            ).fetchone()[0]
             for t in SOURCES
         }
-        wrong = {t: (n, EXPECTED_ROWS[t]) for t, n in counts.items() if n != EXPECTED_ROWS[t]}
+        wrong = {t: (n, expected[t]) for t, n in counts.items() if n != expected[t]}
         if wrong:
             detail = "; ".join(f"{t}: got {n:,}, expected {e:,}" for t, (n, e) in wrong.items())
             raise LoadError(f"row counts do not match, load rolled back: {detail}")

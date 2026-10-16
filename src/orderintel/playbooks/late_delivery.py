@@ -84,6 +84,21 @@ STEPS = [
         FROM s""",
     ),
     Step(
+        "seller_rank",
+        f"""
+        SELECT seller_id,
+               count(DISTINCT order_id) FILTER (WHERE purchase_month = :p_month) AS n_period,
+               count(DISTINCT order_id) FILTER (WHERE purchase_month = :p_month AND is_late)
+                   AS late_period,
+               count(DISTINCT order_id) FILTER (WHERE purchase_month <> :p_month) AS n_base,
+               count(DISTINCT order_id) FILTER (WHERE purchase_month <> :p_month AND is_late)
+                   AS late_base
+        FROM order_items WHERE is_late IS NOT NULL AND {WINDOW} AND {STATE_FILTER}
+        GROUP BY seller_id
+        HAVING count(DISTINCT order_id) FILTER (WHERE purchase_month = :p_month) >= {MIN_GROUP}
+        ORDER BY seller_id""",
+    ),
+    Step(
         "reviews",
         f"""
         SELECT is_late,
@@ -130,6 +145,7 @@ class LateFindings:
     top_categories: list[GroupRate] = field(default_factory=list)
     sellers_with_late_orders: int | None = None
     top5_seller_share: float | None = None
+    top_sellers: list[GroupRate] = field(default_factory=list)  # by excess late orders
     review_avg_late: float | None = None
     review_avg_on_time: float | None = None
     review_n_late: int | None = None
@@ -144,6 +160,11 @@ class LateFindings:
 
 def _f(v):
     return None if v is None else float(v)
+
+
+def _excess(r: dict) -> float:
+    """Late orders above what the group's own baseline rate predicts."""
+    return r["late_period"] - r["n_period"] * r["late_base"] / r["n_base"]
 
 
 def compute_findings(run: PlaybookRun) -> LateFindings:
@@ -188,18 +209,14 @@ def compute_findings(run: PlaybookRun) -> LateFindings:
         # baseline rate predicts. This answers "where did the extra late orders come from?";
         # ranking by rate would put small states with a few late orders first.
         rows = [r for r in geo.as_dicts() if r["n_period"] >= MIN_STATE_SAMPLE and r["n_base"]]
-
-        def excess(r):
-            return r["late_period"] - r["n_period"] * r["late_base"] / r["n_base"]
-
-        ranked = sorted(rows, key=lambda r: (-excess(r), r["state"]))
+        ranked = sorted(rows, key=lambda r: (-_excess(r), r["state"]))
         f.top_states = [
             GroupRate(
                 r["state"],
                 r["n_period"],
                 pct(r["late_period"], r["n_period"]),
                 pct(r["late_base"], r["n_base"]),
-                round(excess(r)),
+                round(_excess(r)),
             )
             for r in ranked[:3]
         ]
@@ -226,6 +243,20 @@ def compute_findings(run: PlaybookRun) -> LateFindings:
     s = run.step("sellers").as_dicts()[0]
     f.sellers_with_late_orders = s["sellers_with_late_orders"]
     f.top5_seller_share = pct(s["top5_late_orders"] or 0, f.late_orders)
+    # Sellers ranked like states: excess late orders over the seller's own baseline, among
+    # sellers with at least MIN_GROUP orders in the period (and some baseline history).
+    seller_rows = [r for r in run.step("seller_rank").as_dicts() if r["n_base"]]
+    seller_rows.sort(key=lambda r: (-_excess(r), r["seller_id"]))
+    f.top_sellers = [
+        GroupRate(
+            r["seller_id"],
+            r["n_period"],
+            pct(r["late_period"], r["n_period"]),
+            pct(r["late_base"], r["n_base"]),
+            round(_excess(r)),
+        )
+        for r in seller_rows[:3]
+    ]
 
     reviews = {r["is_late"]: r for r in run.step("reviews").as_dicts()}
     late_r, ok_r = reviews.get(True), reviews.get(False)

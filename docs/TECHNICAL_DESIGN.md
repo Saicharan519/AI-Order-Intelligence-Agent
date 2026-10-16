@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.6 |
+| Version | 1.7 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [PRD.md](PRD.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -143,7 +143,7 @@ order-intel/
     run_eval.py compare.py score.py report.py
     reports/    # committed summaries
   tests/
-    fixtures/mini_olist/         # small synthetic CSVs containing the data traps
+    fixtures/mini_olist/         # seeded generator for the synthetic CSVs (traps + planted anomalies)
     unit/ integration/ safety/
   .github/workflows/ci.yml
 ```
@@ -459,7 +459,7 @@ Each request produces one `trace.requests` row and several `trace.steps` rows: p
 | Evaluation | Golden set, investigation cases, ablations | Yes | No |
 | Smoke | `/health` and one canned question after deployment | Cached | Post-deploy |
 
-The **mini fixture** (`tests/fixtures/mini_olist/`) is a small synthetic dataset containing every data trap: a multi-payment order, duplicate reviews, a null category, an untranslated category, a multi-seller order, a same-day delivery, and an undelivered order. It lets CI run without the real CSVs, which are not redistributed.
+The **mini fixture** (`tests/fixtures/mini_olist/generate.py`) is a small synthetic dataset (about 8,000 orders, fixed seed) containing every data trap: a multi-payment order, duplicate reviews, a null category, an untranslated category, a multi-seller order, a same-day delivery, undelivered orders (including "delivered" with no date), and empty months. It also carries the two planted anomalies of section 8.6. The CSVs are generated at build time, not committed; `scripts/build_mini_db.py` loads them into the separate database `orderintel_mini` with the normal migrations and loader. It lets CI run without the real CSVs, which are not redistributed.
 
 ## 13. Deployment
 
@@ -520,3 +520,4 @@ The live deployment is temporary because the free plan is time-limited. The dura
 | 1.4 | 2026-10-15 | M4: pglast added as a second-opinion parser (Q-04 resolved); validator implementation notes; EXPLAIN ceiling calibrated (250,000). |
 | 1.5 | 2026-10-15 | Provider changed to the Gemini API free tier (DeepSeek top-up failed). |
 | 1.6 | 2026-10-16 | DeepSeek restored as the primary provider (version 1.4 text restored) after the top-up succeeded. Added: verified thinking-disable parameter, Gemini free tier as optional second provider, optional `GEMINI_API_KEY`, bounded retries on 429 and 503. |
+| 1.7 | 2026-10-16 | Mini fixture implemented as a seeded generator plus a separate `orderintel_mini` database; the late-delivery playbook gains a `seller_rank` step (sellers ranked by excess late orders, at least 30 orders in the period) so a seller-level anomaly is named. |

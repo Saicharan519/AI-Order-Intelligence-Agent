@@ -2,7 +2,31 @@
 
 ## Current milestone
 
-**M7 part 1 built and evaluated.** Next: M7 part 2 (synthetic mini fixture with the two planted anomalies; no spend).
+**M7 complete** (part 1 evaluated, part 2 planted anomalies 2/2). Next: M8, the safety suite (an estimate comes first for its LLM injection tests).
+
+## 2026-10-16 — M7 part 2: synthetic mini fixture and planted anomalies (no spend)
+
+**Completed**
+- `tests/fixtures/mini_olist/generate.py`: seeded generator for Olist-format CSVs, 20 months x 400 delivered orders (8,074 orders in total, with non-delivered and out-of-window orders). Baseline lateness is exactly 5% inside every (month, state) group, so control months sit exactly at baseline and a detection cannot come from noise. All data traps included (multi-payment, duplicate reviews, null and untranslated categories, multi-seller order, same-day delivery, "delivered" with no date, order with no review, empty months 2016-11 and 2016-12). The CSVs are generated at build time and not committed.
+- `scripts/build_mini_db.py`: recreates the separate database `orderintel_mini` (only a name ending in `_mini` can be dropped) and builds it with the normal `migrate.py` and `load_data.py`, which now accept optional settings and expected counts (defaults unchanged).
+- Planted anomalies, applied after the promise date is fixed so only the planted stage moves: +10 carrier transit days for RJ customers in March 2018; +5 handling days for one seller (30% of orders) in October 2017.
+- **Gap found and fixed:** the plan required the seller step to name the planted seller, but the `sellers` step only counted sellers and the top-5 share. New `seller_rank` step: sellers with at least 30 orders in the period, ranked by excess late orders over their own baseline (as states already were). On the real data, March 2018's top seller is `4869f7a5…`, the same seller the M7 follow-up evaluation found with a different query; the step returns at most 43 rows and adds under a second. The earlier paid investigation run used the playbook without this step; its findings are otherwise unchanged.
+- `eval/run_investigation_eval.py --planted` (no model calls) records both cases in `eval/results/investigation_planted.json` and the report.
+
+**Results (measured on the fixture)**
+
+| Case | Verdict | Late rate vs baseline | Driver | Located |
+|---|---|---|---|---|
+| `inv_plant_01` RJ, March 2018 | elevated | 90.8% vs 5.5% | carrier transit (17.78 vs 7.52 days) | RJ ranked first unfiltered (+102 excess late orders), not systemic |
+| `inv_plant_02` all states, October 2017 | elevated | 13.5% vs 6.3% | seller handling (3.95 vs 2.51 days) | planted seller first (+35 excess; the next two about -1) |
+
+Controls: June 2017 (all states and RJ) and January 2018 (SP) report nothing notable; MG (60 orders a month) is reported as insufficient data. **Counterfactual:** the same fixture rebuilt without the plants reports nothing notable for both planted months. SC-08 planted anomalies: **2/2**.
+
+**Mistakes during the work (corrected):** two test mistakes on the first run (wrong column name; MG chosen as a control although it is below the 100-order minimum, which the playbook correctly reported as insufficient data). Inline-script escaping turned `"\n"` string literals into real line breaks several times; each was caught by ruff or Python and fixed with the Edit tool.
+
+**Tests (actually run):** full suite 561 passed, 0 skipped (16 new fixture tests; one existing test updated from 6 to 7 playbook steps); ruff clean.
+
+**API cost:** $0.00. Project total unchanged at **$0.054571 of $1.90**.
 
 ## 2026-10-16 — M7 part 1: investigation evaluation (owner-approved)
 

@@ -164,7 +164,8 @@ def test_investigation_runs_playbook_and_checks_narration():
         report["findings"]["late_orders"] == 1328 and report["findings"]["delivered_orders"] == 7003
     )
     assert r.grounding.untraced == [] and r.warnings == [] and not r.grounding.regenerated
-    assert len(r.evidence) == 6 and all(e.kind == "playbook_step" for e in r.evidence)
+    # 7 steps: kpi, stages, geography, category, sellers, seller_rank (M7 part 2), reviews
+    assert len(r.evidence) == 7 and all(e.kind == "playbook_step" for e in r.evidence)
     assert fake.calls == ["router", "narrate"]  # no SQL generation: playbook SQL is fixed
     assert r.scope.period.start == "2018-03-01" and r.scope.period.end == "2018-03-31"
     assert any(f.inherits_scope for f in r.followups)

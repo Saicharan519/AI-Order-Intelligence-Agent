@@ -13,6 +13,7 @@ inherited scope in their SQL and (b) return the reference answer (raw-table SQL 
     python eval/run_investigation_eval.py --estimate
     python eval/run_investigation_eval.py --approved
     python eval/run_investigation_eval.py --recheck   # re-apply the causal lint, no calls
+    python eval/run_investigation_eval.py --planted   # planted anomalies on the mini fixture, no calls
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from orderintel.llm.client import LLMClient, LLMError, provider_config
 GOLDEN = PROJECT_ROOT / "eval" / "golden"
 OUT = PROJECT_ROOT / "eval" / "results" / "investigation_deepseek.json"
 REPORT = PROJECT_ROOT / "eval" / "reports" / "investigation_report.md"
+PLANTED_OUT = PROJECT_ROOT / "eval" / "results" / "investigation_planted.json"
 
 DELIVERED = "o.order_status = 'delivered' AND o.order_delivered_customer_date IS NOT NULL"
 LATE = "o.order_delivered_customer_date::date > o.order_estimated_delivery_date::date"
@@ -100,9 +102,12 @@ def main(argv=None) -> int:
     ap.add_argument("--estimate", action="store_true")
     ap.add_argument("--approved", action="store_true")
     ap.add_argument("--recheck", action="store_true")
+    ap.add_argument("--planted", action="store_true")
     args = ap.parse_args(argv)
     if args.recheck:
         return recheck()
+    if args.planted:
+        return planted()
     cases = [
         c
         for c in yaml.safe_load((GOLDEN / "investigation.yaml").read_text(encoding="utf-8"))
@@ -262,6 +267,67 @@ def recheck() -> int:
     return 0
 
 
+def planted() -> int:
+    """Planted-anomaly cases (SC-08) on the synthetic mini fixture: the playbook runs
+    without any model call, on a freshly built orderintel_mini, and must report the
+    expected verdict, driver, and location."""
+    sys.path.insert(0, str(PROJECT_ROOT))  # scripts/ and tests/fixtures/ are not installed
+    from orderintel.playbooks import late_delivery
+    from orderintel.playbooks.base import PlaybookParams
+    from scripts.build_mini_db import build, mini_settings
+    from tests.fixtures.mini_olist.generate import PLANT_SELLER
+
+    cases = [
+        c
+        for c in yaml.safe_load((GOLDEN / "investigation.yaml").read_text(encoding="utf-8"))
+        if "fixture" in c
+    ]
+    build(plants=True)
+    s = mini_settings()
+    out = []
+    for c in cases:
+        p = c["params"]
+        _, f = late_delivery.run(PlaybookParams(**p), settings=s)
+        checks = {
+            "verdict": f.verdict == c["expected_verdict"],
+            "top_driver": f.top_driver == c["expected_top_driver"],
+        }
+        located = None
+        if "expected_top_state_unfiltered" in c:
+            _, g = late_delivery.run(PlaybookParams(period=p["period"]), settings=s)
+            located = g.top_states[0].name if g.top_states else None
+            checks["top_state"] = located == c["expected_top_state_unfiltered"]
+        if "expected_top_seller" in c:
+            expected = PLANT_SELLER if c["expected_top_seller"] == "PLANT_SELLER" else None
+            located = f.top_sellers[0].name if f.top_sellers else None
+            checks["top_seller"] = located == expected
+        out.append(
+            {
+                "id": c["id"],
+                "params": p,
+                "verdict": f.verdict,
+                "top_driver": f.top_driver,
+                "late_rate": f.late_rate,
+                "baseline_rate": f.baseline_rate,
+                "located": located,
+                "checks": checks,
+                "detected": all(checks.values()),
+            }
+        )
+        print(f"  {c['id']}: {f.verdict} {f.top_driver} located={located} checks={checks}")
+    PLANTED_OUT.write_text(
+        json.dumps(
+            {"run_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "cases": out},
+            indent=1,
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    data = json.loads(OUT.read_text(encoding="utf-8"))
+    write_report(data["cases"], data["followups"], rechecked="rechecked_at" in data)
+    return 0 if all(c["detected"] for c in out) else 1
+
+
 def write_report(rows: list[dict], fus: list[dict], rechecked: bool = False) -> None:
     played = [r for r in rows if r["verdict_ok"] is not None]
     positives = [r for r in played if r["label"]["verdict"] == "elevated"]
@@ -269,6 +335,12 @@ def write_report(rows: list[dict], fus: list[dict], rechecked: bool = False) -> 
     traced = sum(not r["grounding"]["untraced"] for r in played)
     no_warning = sum(not r["warnings"] for r in played)
     cost = sum(r["usage"]["cost_usd"] for r in rows) + sum(f["usage"]["cost_usd"] for f in fus)
+    plants = (
+        json.loads(PLANTED_OUT.read_text(encoding="utf-8"))["cases"] if PLANTED_OUT.exists() else []
+    )
+    planted_cell = (
+        f"{sum(c['detected'] for c in plants)}/{len(plants)}" if plants else "not run (`--planted`)"
+    )
     lines = [
         "# Investigation evaluation (M7 part 1)",
         "",
@@ -300,7 +372,7 @@ def write_report(rows: list[dict], fus: list[dict], rechecked: bool = False) -> 
         f"| Narrations with no warning (grounding, driver, causal wording) | {no_warning}/{len(played)} | — |",
         f"| Follow-ups that kept the inherited scope | {sum(f['scope_ok'] for f in fus)}/{len(fus)} | — |",
         f"| Follow-ups answered correctly | {sum(bool(f['correct']) for f in fus)}/{len(fus)} | — |",
-        "| Planted anomalies detected | not run yet (M7 part 2, mini fixture) | 2/2 |",
+        f"| Planted anomalies detected (mini fixture, no model calls) | {planted_cell} | 2/2 |",
         f"| Cost | ${cost:.4f} | — |",
         "",
         "## Cases",
@@ -327,6 +399,24 @@ def write_report(rows: list[dict], fus: list[dict], rechecked: bool = False) -> 
             f"| `{f['id']}` {f['question']} | `{f['after']}` | {f['correct']} | "
             f"{f['scope_ok']} | `{(f['sql'] or '')[:120]}` |"
         )
+    if plants:
+        lines += [
+            "",
+            "## Planted anomalies (synthetic mini fixture)",
+            "",
+            "Built by `scripts/build_mini_db.py` from `tests/fixtures/mini_olist/generate.py`; "
+            "the playbook runs without model calls. The same fixture without the plants "
+            "reports nothing notable for these months (`tests/integration/test_mini_fixture.py`).",
+            "",
+            "| Case | Params | Verdict | Late rate vs baseline | Driver | Located | Detected |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for c in plants:
+            lines.append(
+                f"| `{c['id']}` | {c['params']} | {c['verdict']} | {c['late_rate']}% vs "
+                f"{c['baseline_rate']}% | {c['top_driver']} | `{(c['located'] or '-')[:12]}` | "
+                f"{c['detected']} |"
+            )
     lines += ["", "## Example narration (inv_late_01)", ""]
     ex = next((r for r in rows if r["id"] == "inv_late_01"), None)
     if ex:

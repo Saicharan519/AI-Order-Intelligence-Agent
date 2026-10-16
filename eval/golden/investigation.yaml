@@ -116,14 +116,16 @@
 - id: inv_plant_01
   fixture: mini_olist_planted_transit
   playbook: late_delivery_diagnosis
-  params: {period: "fixture month", state: "fixture state"}
+  params: {period: "2018-03", state: "RJ"}
   expected_verdict: elevated
   expected_top_driver: carrier_transit
-  notes: +10 carrier transit days injected for one state in one month.
+  expected_top_state_unfiltered: RJ
+  notes: +10 carrier transit days injected for customers in RJ, March 2018 (tests/fixtures/mini_olist/generate.py).
 - id: inv_plant_02
   fixture: mini_olist_planted_handling
   playbook: late_delivery_diagnosis
-  params: {period: "fixture month"}
+  params: {period: "2017-10"}
   expected_verdict: elevated
   expected_top_driver: seller_handling
-  notes: +5 seller handling days injected for one seller; the seller concentration step must name it.
+  expected_top_seller: PLANT_SELLER
+  notes: +5 seller handling days injected for one seller (about 30% of orders), October 2017; the seller ranking must name it first.

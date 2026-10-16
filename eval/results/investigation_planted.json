@@ -1,0 +1,40 @@
+{
+ "run_at": "2026-10-16T13:12:56+00:00",
+ "cases": [
+  {
+   "id": "inv_plant_01",
+   "params": {
+    "period": "2018-03",
+    "state": "RJ"
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "late_rate": 90.8,
+   "baseline_rate": 5.5,
+   "located": "RJ",
+   "checks": {
+    "verdict": true,
+    "top_driver": true,
+    "top_state": true
+   },
+   "detected": true
+  },
+  {
+   "id": "inv_plant_02",
+   "params": {
+    "period": "2017-10"
+   },
+   "verdict": "elevated",
+   "top_driver": "seller_handling",
+   "late_rate": 13.5,
+   "baseline_rate": 6.3,
+   "located": "1b68c7aff23b2f67e8e5b447c4b7439e",
+   "checks": {
+    "verdict": true,
+    "top_driver": true,
+    "top_seller": true
+   },
+   "detected": true
+  }
+ ]
+}

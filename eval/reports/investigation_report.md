@@ -14,7 +14,7 @@ Rechecked offline (`--recheck`, no API calls) after a causal-lint fix: a negated
 | Narrations with no warning (grounding, driver, causal wording) | 13/13 | — |
 | Follow-ups that kept the inherited scope | 5/5 | — |
 | Follow-ups answered correctly | 5/5 | — |
-| Planted anomalies detected | not run yet (M7 part 2, mini fixture) | 2/2 |
+| Planted anomalies detected (mini fixture, no model calls) | 2/2 | 2/2 |
 | Cost | $0.0084 | — |
 
 ## Cases
@@ -46,6 +46,15 @@ Rechecked offline (`--recheck`, no API calls) after a causal-lint fix: a negated
 | `fu_03` What was the average carrier transit time in days? | `inv_late_02` | True | True | `SELECT ROUND(CAST(AVG(carrier_transit_days) AS DECIMAL), 2) AS avg_carrier_transit_days FROM analytics.orders WHERE purc` |
 | `fu_04` How many orders were delivered? | `inv_late_05` | True | True | `SELECT COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered = TRUE AND purchase_month = CAST('2018-03-0` |
 | `fu_05` What share of reviews were 1-star? | `inv_rev_01` | True | True | `SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE review_score = 1) / COUNT(*) AS DECIMAL), 2) AS one_star_share_pct FROM ` |
+
+## Planted anomalies (synthetic mini fixture)
+
+Built by `scripts/build_mini_db.py` from `tests/fixtures/mini_olist/generate.py`; the playbook runs without model calls. The same fixture without the plants reports nothing notable for these months (`tests/integration/test_mini_fixture.py`).
+
+| Case | Params | Verdict | Late rate vs baseline | Driver | Located | Detected |
+|---|---|---|---|---|---|---|
+| `inv_plant_01` | {'period': '2018-03', 'state': 'RJ'} | elevated | 90.8% vs 5.5% | carrier_transit | `RJ` | True |
+| `inv_plant_02` | {'period': '2017-10'} | elevated | 13.5% vs 6.3% | seller_handling | `1b68c7aff23b` | True |
 
 ## Example narration (inv_late_01)
 
