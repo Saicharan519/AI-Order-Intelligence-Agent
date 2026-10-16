@@ -6,8 +6,49 @@
 
 - Models `deepseek-flash` (primary) and `deepseek-v4-pro` (comparison); prices and peak hours as in PRD section 13 (official pricing page, 2026-10-15).
 - Thinking is on by default at `high` effort. It is disabled on every call with `extra_body={"thinking": {"type": "disabled"}}`; thinking mode ignores `temperature`; chain-of-thought appears in `reasoning_content` (official thinking-mode guide, 2026-10-16).
-- Top-up completed by the owner on 2026-10-16.
-- Calibration: pending the API key in `.env` and the owner's approval (`python scripts/calibrate.py --provider deepseek`, 10 calls, estimated under $0.01).
+- Top-up completed by the owner on 2026-10-16. Budget cap in code stays at US$1.90 (owner's decision).
+
+### DeepSeek calibration run (2026-10-16 10:38 UTC, Friday, off-peak; `scripts/calibrate.py --provider deepseek`, 10 calls, owner-approved)
+
+All calls `temperature=0`, `max_tokens=2048`, thinking disabled except the control call. Raw results: git-ignored `eval/cache/calibration_deepseek.json`.
+
+| Call | Result | Latency | Cache miss / hit / output tokens | Reasoning tokens | Cost (off-peak) |
+|---|---|---|---|---|---|
+| latency_1 | OK | 1.45 s | 18 / 0 / 5 | none | $0.000006 |
+| latency_2 | OK | 0.67 s | 18 / 0 / 5 | none | $0.000006 |
+| latency_3 | OK | 0.84 s | 18 / 0 / 5 | none | $0.000006 |
+| thinking_default_control (no `thinking` parameter) | OK | 0.99 s | 44 / 0 / 26 | **20** (`reasoning_content` returned) | $0.000022 |
+| json_object | OK, valid JSON | 0.74 s | 44 / 0 / 16 | none | $0.000016 |
+| sqlgen_canceled | OK | 1.00 s | 1,853 / 0 / 68 | none | $0.000319 |
+| sqlgen_late_rate | OK | 1.26 s | 196 / **1,664** / 135 | none | $0.000115 |
+| sqlgen_canceled_repeat_cache | OK | 1.17 s | 189 / **1,664** / 71 | none | $0.000076 |
+| sqlgen_monthly | OK | 1.32 s | 195 / **1,664** / 113 | none | $0.000102 |
+| comparison_model (`deepseek-v4-pro`) | OK | 2.45 s | 18 / 0 / 5 | none | $0.000022 |
+| **Total** | **10 of 10** | | | | **$0.000689** (at peak prices it would be $0.001379) |
+
+### Findings (Q-02 answered for DeepSeek)
+
+1. **Usage field names:** `prompt_cache_hit_tokens`, `prompt_cache_miss_tokens`, `completion_tokens`, and `completion_tokens_details.reasoning_tokens` (also `prompt_tokens_details.cached_tokens`). The usage ledger records all of them.
+2. **Thinking is really off** with `extra_body={"thinking": {"type": "disabled"}}`: no reasoning tokens and no `reasoning_content`. Without the parameter, even a trivial prompt produced 20 reasoning tokens, and the prompt grew from 18 to 44 tokens.
+3. **Prompt caching works automatically and across different questions:** after the first SQL call, 1,664 of about 1,860 prompt tokens were cache hits (the static prefix: rules, view documentation, glossary). A cached SQL call costs about $0.0001 instead of $0.0003, roughly three times cheaper, which validates the "static prefix first" prompt layout (technical design 10.3).
+4. **Latency:** 0.7-1.5 s for `deepseek-flash`, 2.45 s for `deepseek-v4-pro` on a tiny prompt.
+5. **JSON output** (`response_format: json_object`) returned valid JSON in every call.
+6. **Cost estimate check (A-03):** the PRD estimated about $0.001 per ablation question; measured is $0.0001-0.0003 off-peak, well within the estimate.
+
+### First signal on SQL quality (development questions only)
+
+| Golden item | Result |
+|---|---|
+| agg_10 canceled orders (twice) | Correct both times: 625 |
+| trend_01 orders per month in 2017 | Correct: 12 rows, in order, matching the reference |
+| agg_04 overall late-delivery rate | 6.79%, scored correct within tolerance; the reference is 6.77%. Like Gemini, the model restricted the data to the analysis window on its own and said so in its assumptions. |
+
+Both providers read the glossary's "analysis window" as applying to an "overall" figure. This is a glossary ambiguity to settle before M5 (see `docs/progress.md`).
+
+### Not yet verified
+
+- Rate limits and balance expiry (not observable in 10 calls; check the DeepSeek console).
+- That the console balance change matches the computed cost ($0.0007 may display as $0.00).
 
 ## Gemini API free tier (second provider)
 

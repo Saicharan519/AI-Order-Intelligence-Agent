@@ -1,12 +1,12 @@
 # Business glossary
 
-Version 1.0 (2026-10-15). Source: PRD section 6. These definitions are implemented once, in the `analytics` views, and are shown to the model and to users. If a definition changes, the view, this file, and the PRD change together.
+Version 1.1 (2026-10-16; 1.1 states when the analysis window applies). Source: PRD section 6. These definitions are implemented once, in the `analytics` views, and are shown to the model and to users. If a definition changes, the view, this file, and the PRD change together.
 
 ## Data window and dates
 
 | Term | Definition | Where implemented |
 |---|---|---|
-| Analysis window | January 2017 to August 2018. Data outside it is sparse. | Prompt rules; `data_coverage` |
+| Analysis window | January 2017 to August 2018 (`data_coverage.in_analysis_window`). Data outside it is sparse. **When it applies:** trends, monthly series, month-to-month comparisons, and per-month averages use only months inside the window (also when the question names a longer period, for example "average orders per month in 2018" uses January to August 2018). **Totals and "overall" figures do not apply the window:** they use all data in the period the question asks for, or all data if no period is given (for example, the overall late-delivery rate uses every delivered order; revenue in 2016 uses all of 2016). | Prompt rules; `data_coverage` |
 | "Today" | 2018-08-31. Relative dates ("last month", "this year") are resolved against this date, so "last month" means July 2018. | Prompt rules |
 | Order month | Month of the purchase timestamp. | `orders.purchase_month` (first day of the month) |
 | Partial period | A month with fewer than 500 orders. Results for it carry a warning. November 2016 has zero orders. | `data_coverage.is_partial` |

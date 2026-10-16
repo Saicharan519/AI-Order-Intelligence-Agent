@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.5 |
+| Version | 1.6 |
 | Date | 2026-10-15 |
 | Author | Sai Charan Kukkala |
 | Related documents | [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md), [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) |
@@ -122,6 +122,7 @@ These definitions are versioned in `glossary/glossary.md`, supplied to the model
 | Ranking eligibility | A seller or group needs at least 30 orders to appear in a ranking. The sample size is always shown. |
 | Baseline (diagnosis) | The pooled value over all other months in the analysis window, excluding the period under investigation. Spike months slightly inflate the baseline, which makes findings conservative. |
 | Partial period | A month with fewer than 500 orders. |
+| Analysis window | January 2017 to August 2018. Applied to trends, monthly series, month-to-month comparisons, and per-month averages (also inside a longer period the question names). Not applied to totals and "overall" figures, which use all data in the period asked for, or all data if no period is given. |
 
 ## 7. Scope
 
@@ -398,3 +399,4 @@ Seller-scoped mode with row-level security, additional playbooks (seller scoreca
 | 1.3 | 2026-10-15 | M2: untranslated categories keep their Portuguese names (instead of `unknown`); impossible negative stage durations are NULL; November 2016 (zero orders) is listed as a partial month. Examples 1 and 2 and the Example 3 headline reproduced exactly through the views. |
 | 1.4 | 2026-10-15 | LLM provider changed to the Gemini API free tier because the DeepSeek top-up could not be paid. |
 | 1.5 | 2026-10-16 | The DeepSeek top-up succeeded, so DeepSeek is the primary provider again with the US$2 budget (the version 1.3 text is restored). The verified switch that disables thinking is recorded in section 13. Gemini's free tier, calibrated in the meantime, is kept as the optional second provider (F-16). |
+| 1.6 | 2026-10-16 | Section 6: "Analysis window" defined, including when it applies (trends and per-month figures) and when it does not (totals and "overall" figures). Both calibrated models had applied the window to an overall rate; the rule matches the frozen golden references, which are unchanged. |

@@ -2,7 +2,22 @@
 
 ## Current milestone
 
-**DeepSeek restored as the primary provider; M0b for DeepSeek pending** (needs the owner's key in `.env` and approval for about 10 calls, under $0.01). Gemini's free tier is calibrated and kept as the second provider. Next after M0b: M5.
+**M0b complete for both providers.** Next: M5 (LLM client with budget guard, cache, and retries; SQL-generation prompts A to C; ablations on the development split after a cost estimate and approval).
+
+## 2026-10-16 — M0b: DeepSeek calibration
+
+**Completed:** owner added the DeepSeek key (checked for format only, never printed) and approved 10 calls; `scripts/calibrate.py --provider deepseek` ran at 10:38 UTC (off-peak). Results in `docs/provider_facts.md`.
+
+**Results (actually observed)**
+- 10 of 10 calls succeeded; latency 0.7-1.5 s (`deepseek-flash`), 2.45 s (`deepseek-v4-pro`).
+- Thinking disabled works (no reasoning tokens); a control call without the parameter produced 20 reasoning tokens.
+- Automatic prompt caching: 1,664 of about 1,860 prompt tokens hit the cache on later SQL calls, making them about three times cheaper.
+- All four SQL answers to development questions validated, executed, and matched the references (agg_10 twice, trend_01, agg_04 within tolerance).
+- Usage field names recorded for the ledger (Q-02 answered).
+
+**Decision taken (owner-approved):** both DeepSeek and Gemini restricted an "overall" late rate to January 2017-August 2018 (6.79%) while the reference uses all data (6.77%). Glossary v1.1 and PRD v1.6 now state that the window applies to trends, monthly series, month-to-month comparisons, and per-month averages, and not to totals or "overall" figures. The rule was checked against the frozen references (agg_01/02/04/09 use all data; trap_11 uses all of 2016; trap_07 averages only January-August 2018; ambig_05 uses the window), so no golden item changed and the test-split fingerprint is unaffected. This is a definition fix, not prompt tuning on test questions.
+
+**API cost incurred:** $0.000689 (DeepSeek, off-peak). Total project spend so far: **$0.000689 of the $1.90 cap.** Gemini: 11 requests, $0.
 
 ## 2026-10-16 — Provider: back to DeepSeek, Gemini kept as second provider
 
