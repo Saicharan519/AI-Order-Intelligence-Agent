@@ -2,7 +2,44 @@
 
 ## Current milestone
 
-**M0b complete for both providers.** Next: M5 (LLM client with budget guard, cache, and retries; SQL-generation prompts A to C; ablations on the development split after a cost estimate and approval).
+**M5 in progress: first development-split run done (prompt `sqlgen-v1`).** Next: owner decides between one prompt iteration on the development split (output-format discipline) and going straight to the single test-split run.
+
+## 2026-10-16 — M5 part 2: first ablation run, development split (owner-approved)
+
+Run at 11:00 UTC (off-peak), `deepseek-flash`, thinking disabled, temperature 0, prompt `sqlgen-v1`; 36 answerable development items. Results: `eval/results/dev_{A,B,C,D}_deepseek.json`; report: `eval/reports/ablation.md`; manual review: `eval/reviews/dev_sqlgen-v1_tags.yaml`.
+
+| Config | Strict correct (95% CI) | Data correct after manual review | Real analytical errors | Cost |
+|---|---|---|---|---|
+| A raw DDL | 21/36, 58% (42-73%) | 22/36 | 14 | $0.0042 |
+| B + glossary | 31/36, 86% (71-94%) | 34/36 | 2 | $0.0048 |
+| C views + glossary | 34/36, 94% (82-98%) | 36/36 | 0 | $0.0037 |
+| D C + validator + repairs | 34/36, 94% (82-98%) | 36/36 | 0 | $0.0000 (all 36 served from C's cache) |
+
+**What the run shows**
+- A's errors are the documented data traps: revenue with freight or canceled orders (5), lateness by timestamp (4), duplicate reviews (2), delivered-only "sales" (1), no minimum volume (1), partial months in a trend (1).
+- The glossary (A → B, +28 points strict) removes most definition errors; the views (B → C, +8 points) remove the rest (B still had one item-level fan-out and one duplicate-review error).
+- C's two misses are format only (extra count columns; `'late'`/`'on_time'` labels instead of a boolean): the numbers are right.
+- D equals C on the development split: the validator rejected nothing, so no repair was needed, and D's identical first request came from the cache. D's contribution is safety, not accuracy, on these questions; this is a negative result to report as measured.
+- p50 latency about 1.2-1.3 s, p95 about 1.8-2.1 s per question (SQL generation only).
+
+**Caveats:** 36 items; confidence intervals overlap between B, C, and D. The development split may be used for tuning, so these numbers are not the headline result; the frozen test split is.
+
+**Cost:** this run $0.012631 (ledger and results agree). Project total: **$0.013320 of the $1.90 cap** ($0.000689 calibration + $0.012631 this run; the calibration ran before the ledger existed, so the guard counts slightly less than the true total).
+
+## 2026-10-16 — M5 part 1: LLM client, prompts, ablation runner (no spend)
+
+**Completed**
+- `src/orderintel/llm/`: `pricing.py` (DeepSeek peak/off-peak prices, usage parsing for both providers, worst-case cost), `budget.py` (ledger in `trace.requests` via `oi_trace`; guard checks total $1.90 / daily $0.40 caps and Gemini RPM/RPD before every call), `cache.py` (SHA-256-keyed response cache in git-ignored `eval/cache/llm/`), `client.py` (one client for both providers; thinking disabled for DeepSeek; at most two retries on 429/503/connection errors; dry-run; pluggable transport).
+- `prompts/sqlgen_rules_v1.md` and `src/orderintel/agent/sqlgen.py`: configurations A (raw DDL, comments stripped), B (A + glossary definitions without view references), C/D (view documentation + full glossary). Rules first, question last, so the provider's prefix cache applies.
+- `src/orderintel/agent/pipeline.py`: A to C run unvalidated SQL as read-only `oi_eval` (timeout, row cap); D uses validator + executor + at most two repairs with the rejection reason fed back.
+- `src/orderintel/evaluation/ablation.py`, `stats.py`, `eval/report.py`: scoring against references and accepted alternatives, Wilson 95% intervals, per-category results, repairs, cost, p50/p95 latency, automatic failure-tag suggestions; `eval/reports/ablation.md`.
+- `eval/run_eval.py --config ... --split ... [--estimate] [--approved] [--confirm-test]`: refuses paid calls without `--approved` and the frozen test split without `--confirm-test`.
+
+**Tests (actually run):** full suite 460 passed, 1 skipped (playbook scaffold); new: 16 client/pricing/budget/cache tests, 17 prompt tests, 10 end-to-end fake-model pipeline tests (including D repairs after a validator rejection, bad JSON, and the cost ceiling; repair cap; a fake model answering with reference SQL scores 5/5), ledger integration test. The cost formula reproduces the calibration measurement ($0.000319). Lint and secret scan pass (the scanner caught a key-shaped fake test key, which was renamed).
+
+**Cost estimates (before any paid run):** development split, all four configurations: expected $0.017, worst case $0.38; test split, once each: expected $0.009, worst case $0.19.
+
+**API cost incurred in this part:** $0.00.
 
 ## 2026-10-16 — M0b: DeepSeek calibration
 

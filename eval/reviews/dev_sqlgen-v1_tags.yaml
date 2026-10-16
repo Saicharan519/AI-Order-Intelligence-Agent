@@ -1,0 +1,39 @@
+# Manual failure tags for the development-split run with prompt sqlgen-v1 (2026-10-16).
+# Each wrong item was inspected (SQL, result rows, assumptions). Tags follow technical design
+# section 8.2, plus one added tag:
+#   output_format  the data values are right, but the shape differs from the reference
+#                  (extra columns, text labels instead of booleans, month as text).
+# semantic: true means the answer's numbers are wrong (a real analytical error);
+# false means only the format differs. The strict score stays the headline metric.
+
+A:
+  agg_03:   {tag: wrong_definition, semantic: true,  note: revenue includes freight; canceled/unavailable not excluded (8,643,698 vs 7,341,182)}
+  agg_04:   {tag: wrong_definition, semantic: true,  note: late by timestamp, 8.11% vs 6.77%}
+  agg_13:   {tag: missing_filter,   semantic: true,  note: freight of canceled/unavailable orders included}
+  trend_01: {tag: output_format,    semantic: false, note: month returned as text 2017-01 instead of a date; counts correct}
+  trend_03: {tag: wrong_definition, semantic: true,  note: late by timestamp (6.56% vs 5.70% in January); also extra columns}
+  trend_04: {tag: wrong_definition, semantic: true,  note: revenue includes freight; one row with four columns}
+  trend_06: {tag: wrong_definition, semantic: true,  note: duplicate reviews and timestamp lateness (late 2.57 vs 2.27)}
+  trend_07: {tag: wrong_definition, semantic: true,  note: revenue restricted to delivered orders instead of sales}
+  trend_12: {tag: wrong_definition, semantic: true,  note: late by timestamp (RJ 15.28% vs 13.73%)}
+  trap_03:  {tag: wrong_definition, semantic: true,  note: late by timestamp, 7,826 vs 6,534}
+  trap_06:  {tag: missing_filter,   semantic: true,  note: no minimum-volume rule; seller with 14 orders ranked worst}
+  trap_08:  {tag: wrong_definition, semantic: true,  note: any 1-star review counted, not the latest review per order (11,393 vs 11,363)}
+  trap_11:  {tag: wrong_definition, semantic: true,  note: revenue includes freight and canceled orders (57,183 vs 44,726)}
+  ambig_01: {tag: missing_filter,   semantic: true,  note: items counted without excluding canceled/unavailable orders}
+  ambig_05: {tag: wrong_time_window, semantic: true, note: partial 2016 and September/October 2018 months included (25 rows vs 20)}
+
+B:
+  lookup_02: {tag: output_format,   semantic: false, note: order_id returned alongside the status}
+  trend_03:  {tag: output_format,   semantic: false, note: rates correct; delivered and late counts added}
+  trend_06:  {tag: output_format,   semantic: false, note: averages correct (2.27 vs 4.29); text labels and counts added}
+  trap_06:   {tag: join_fanout,     semantic: true,  note: lateness counted per item row, not per distinct order, so rates and ranking differ}
+  trap_08:   {tag: wrong_definition, semantic: true, note: any 1-star review counted although the glossary defines the latest review per order; the model said so in its assumptions}
+
+C:
+  trend_03: {tag: output_format, semantic: false, note: rates correct; delivered and late counts added}
+  trend_06: {tag: output_format, semantic: false, note: averages correct; text labels late/on_time instead of a boolean, count added}
+
+D:
+  trend_03: {tag: output_format, semantic: false, note: identical to C (same cached first attempt; no validator rejection)}
+  trend_06: {tag: output_format, semantic: false, note: identical to C}

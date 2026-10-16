@@ -31,6 +31,24 @@ class Settings(BaseSettings):
 
     data_dir: Path = PROJECT_ROOT / "data" / "raw"
 
+    # LLM providers (technical design 10.2). Keys are optional so that database-only
+    # scripts and tests run without them.
+    llm_provider: str = "deepseek"
+    deepseek_api_key: SecretStr | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model_primary: str = "deepseek-flash"
+    deepseek_model_comparison: str = "deepseek-v4-pro"
+    llm_total_cap_usd: float = 1.90
+    llm_daily_cap_usd: float = 0.40
+
+    gemini_api_key: SecretStr | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_max_rpm: int = 12
+    gemini_max_requests_per_day: int = 450
+
+    llm_cache_dir: Path = PROJECT_ROOT / "eval" / "cache" / "llm"
+
 
 @lru_cache
 def get_settings() -> Settings:

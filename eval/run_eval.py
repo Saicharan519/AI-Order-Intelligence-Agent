@@ -148,25 +148,95 @@ def refs_only(review_path: Path | None) -> int:
     return 0
 
 
+def run_configs(args) -> int:
+    from orderintel.config import get_settings
+    from orderintel.evaluation.ablation import estimate, run_config, save
+    from orderintel.llm.budget import LimitExceeded, PostgresLedger
+    from orderintel.llm.cache import ResponseCache
+    from orderintel.llm.client import LLMClient, LLMError, provider_config
+
+    cfg = provider_config(args.provider)
+    ids = args.ids.split(",") if args.ids else None
+    if args.estimate:
+        rows = [estimate(c, args.split, cfg.model, ids) for c in args.config]
+        for r in rows:
+            print(
+                f"  config {r['config']} {r['split']}: {r['items']} items, "
+                f"~{r['calls_expected']} calls (worst {r['calls_worst']}), "
+                f"system prompt ~{r['system_prompt_tokens']} tokens, "
+                f"expected ${r['expected_usd']:.4f}, worst case ${r['worst_case_usd']:.4f}"
+            )
+        print(
+            f"TOTAL expected ${sum(r['expected_usd'] for r in rows):.4f}, "
+            f"worst case ${sum(r['worst_case_usd'] for r in rows):.4f} ({cfg.model})"
+        )
+        return 0
+    if args.split == "test" and not args.confirm_test:
+        print(
+            "Refusing to run on the frozen test split without --confirm-test "
+            "(it is run once per configuration)."
+        )
+        return 1
+    if not args.approved and cfg.name == "deepseek":
+        print("Refusing to make paid calls without --approved (get the owner's approval first).")
+        return 1
+
+    cache = None if args.no_cache else ResponseCache(get_settings().llm_cache_dir)
+    client = LLMClient(cfg, PostgresLedger(), cache)
+    for config in args.config:
+        print(f"== config {config} on {args.split} ({cfg.model})")
+        try:
+            summary = run_config(client, config, args.split, ids)
+        except (LimitExceeded, LLMError) as e:
+            print(f"STOPPED: {e}")
+            return 1
+        path = save(summary, cfg.name)
+        lo, hi = summary.ci95
+        print(
+            f"   {summary.correct}/{summary.n} correct ({summary.accuracy:.0%}, 95% CI "
+            f"{lo:.0%}-{hi:.0%}); ran {summary.ran}/{summary.n}; repairs {summary.repairs_used}; "
+            f"${summary.cost_usd:.4f}; calls {summary.llm_calls} ({summary.cached_calls} cached); "
+            f"p50 {summary.latency_p50_ms:.0f} ms, p95 {summary.latency_p95_ms:.0f} ms "
+            f"-> {path.name}"
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the golden-set evaluation")
     parser.add_argument("--refs-only", action="store_true", help="validate references only")
     parser.add_argument("--review", type=Path, help="write a review table (markdown)")
     parser.add_argument(
-        "--freeze", action="store_true",
+        "--freeze",
+        action="store_true",
         help="record the test-split fingerprint (once, after the owner's review)",
     )
+    parser.add_argument(
+        "--config", nargs="+", choices=["A", "B", "C", "D"], help="ablation configurations to run"
+    )
+    parser.add_argument("--split", choices=["dev", "test"], default="dev")
+    parser.add_argument("--provider", choices=["deepseek", "gemini"], default="deepseek")
+    parser.add_argument("--ids", help="comma-separated item ids (subset run)")
+    parser.add_argument("--estimate", action="store_true", help="print a cost estimate only")
+    parser.add_argument("--approved", action="store_true", help="the owner approved this paid run")
+    parser.add_argument(
+        "--confirm-test", action="store_true", help="allow the single run on the frozen test split"
+    )
+    parser.add_argument("--no-cache", action="store_true", help="bypass the response cache")
     args = parser.parse_args(argv)
     if args.freeze:
         if TEST_HASH_FILE.exists():
             parser.error(f"already frozen: {TEST_HASH_FILE}. Re-freezing needs a recorded reason.")
         fp = split_fingerprint(load_golden())
-        TEST_HASH_FILE.write_text(f"{fp}  test split of questions.yaml\n", encoding="utf-8",
-                                  newline="\n")
+        TEST_HASH_FILE.write_text(
+            f"{fp}  test split of questions.yaml\n", encoding="utf-8", newline="\n"
+        )
         print(f"Test split frozen: {fp}")
         return 0
+    if args.config:
+        return run_configs(args)
     if not args.refs_only:
-        parser.error("only --refs-only and --freeze are available until M5")
+        parser.error("choose --refs-only, --freeze, or --config")
     return refs_only(args.review)
 
 

@@ -1,0 +1,1544 @@
+{
+ "config": "D",
+ "split": "dev",
+ "model": "deepseek-flash",
+ "prompt_version": "sqlgen-v1",
+ "started_at": "2026-10-16T11:03:34+00:00",
+ "n": 36,
+ "ran": 36,
+ "correct": 34,
+ "accuracy": 0.9444444444444444,
+ "ci95": [
+  0.8185502589238878,
+  0.9846303362329332
+ ],
+ "by_category": {
+  "lookup": {
+   "n": 6,
+   "correct": 6
+  },
+  "aggregate": {
+   "n": 9,
+   "correct": 9
+  },
+  "trend": {
+   "n": 8,
+   "correct": 6
+  },
+  "trap": {
+   "n": 9,
+   "correct": 9
+  },
+  "ambiguous": {
+   "n": 4,
+   "correct": 4
+  }
+ },
+ "repairs_used": 0,
+ "cost_usd": 0.0,
+ "llm_calls": 36,
+ "cached_calls": 36,
+ "latency_p50_ms": 0.0,
+ "latency_p95_ms": 0.0,
+ "items": [
+  {
+   "id": "lookup_01",
+   "category": "lookup",
+   "split": "dev",
+   "question": "How many sellers are based in the state of São Paulo (SP)?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(DISTINCT seller_id) AS seller_count FROM analytics.sellers WHERE seller_state = 'SP' LIMIT 501",
+   "assumptions": [
+    "'Based in the state of São Paulo (SP)' means seller_state = 'SP' in analytics.sellers.",
+    "Counting distinct seller_id, since the view has one row per seller."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT seller_id) AS seller_count FROM analytics.sellers WHERE seller_state = 'SP' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1849.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2200,
+   "tokens_cache_hit": 0,
+   "tokens_out": 71,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "lookup_02",
+   "category": "lookup",
+   "split": "dev",
+   "question": "What is the status of order e481f51cbdc54678b7cc49136f2d6af7?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT order_status FROM analytics.orders WHERE order_id = 'e481f51cbdc54678b7cc49136f2d6af7' LIMIT 501",
+   "assumptions": [
+    "The order_id is unique in analytics.orders, so one row is returned."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT order_status FROM analytics.orders WHERE order_id = 'e481f51cbdc54678b7cc49136f2d6af7' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "delivered"
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2212,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 59,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "lookup_04",
+   "category": "lookup",
+   "split": "dev",
+   "question": "In which city is seller 3442f8959a84dea7ee197c632cb2df15 located?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT seller_city FROM analytics.sellers WHERE seller_id = '3442f8959a84dea7ee197c632cb2df15' LIMIT 501",
+   "assumptions": [
+    "The seller_id is unique in analytics.sellers, so one row is returned."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT seller_city FROM analytics.sellers WHERE seller_id = '3442f8959a84dea7ee197c632cb2df15' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "campinas"
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2211,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 58,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "lookup_05",
+   "category": "lookup",
+   "split": "dev",
+   "question": "How many items were in order 00526a9d4ebde463baee25f386963ddc?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT item_count FROM analytics.orders WHERE order_id = '00526a9d4ebde463baee25f386963ddc' LIMIT 501",
+   "assumptions": [
+    "item_count in analytics.orders is the number of items in the order."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT item_count FROM analytics.orders WHERE order_id = '00526a9d4ebde463baee25f386963ddc' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     4.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2211,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 56,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "lookup_06",
+   "category": "lookup",
+   "split": "dev",
+   "question": "What was the total amount paid for order 00bd50cdd31bd22e9081e6e2d5b3577b?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT payment_total FROM analytics.payments WHERE order_id = '00bd50cdd31bd22e9081e6e2d5b3577b' LIMIT 501",
+   "assumptions": [
+    "'Total amount paid' is interpreted as the sum of payment rows for the order, available as payments.payment_total."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT payment_total FROM analytics.payments WHERE order_id = '00bd50cdd31bd22e9081e6e2d5b3577b' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     85.8
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2217,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 69,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "lookup_08",
+   "category": "lookup",
+   "split": "dev",
+   "question": "How many orders were placed on 24 November 2017 (Black Friday)?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_date = CAST('2017-11-24' AS DATE) LIMIT 501",
+   "assumptions": [
+    "Counts all orders placed on that date, regardless of status.",
+    "Black Friday 2017 fell on 24 November 2017."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_date = CAST('2017-11-24' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1176.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2202,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 62,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_01",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "How many orders are in the dataset in total?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS total_orders FROM analytics.orders LIMIT 501",
+   "assumptions": [
+    "Total orders means all orders in the dataset, with no period or status filter applied."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS total_orders FROM analytics.orders LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     99441.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2196,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 39,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_03",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "What was the total revenue in 2018?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(SUM(price), 2) AS total_revenue FROM analytics.order_items WHERE is_sale = TRUE AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) LIMIT 501",
+   "assumptions": [
+    "Revenue = sum of item price over sales (is_sale = true), excluding freight.",
+    "2018 means calendar year 2018 (Jan 1 to Dec 31); totals use all data in the requested period, so the analysis window is not applied."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(SUM(price), 2) AS total_revenue FROM analytics.order_items WHERE is_sale = TRUE AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     7341182.41
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2196,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 115,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_04",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "What is the overall late-delivery rate, as a percentage?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE is_late) / COUNT(*) FILTER(WHERE is_delivered) AS DECIMAL), 2) AS late_delivery_rate_pct FROM analytics.orders LIMIT 501",
+   "assumptions": [
+    "Overall rate uses all delivered orders across all data (no analysis-window restriction, per glossary).",
+    "Late rate = late orders / delivered orders."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE is_late) / COUNT(*) FILTER(WHERE is_delivered) AS DECIMAL), 2) AS late_delivery_rate_pct FROM analytics.orders LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     6.77
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2199,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 86,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_05",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "What is the average freight charge per order item, across all items?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(CAST(AVG(freight_value) AS DECIMAL), 2) AS avg_freight_per_item FROM analytics.order_items LIMIT 501",
+   "assumptions": [
+    "'Across all items' means all rows in analytics.order_items, with no time or status filter.",
+    "Average freight charge per order item is the mean of freight_value over all order items."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(CAST(AVG(freight_value) AS DECIMAL), 2) AS avg_freight_per_item FROM analytics.order_items LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     19.99
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2200,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 73,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_07",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "How many products are in the catalogue?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(DISTINCT product_id) AS product_count FROM analytics.order_items LIMIT 501",
+   "assumptions": [
+    "'Products in the catalogue' is interpreted as the number of distinct product_id values appearing in order items, since no separate product catalogue table is available.",
+    "Counts all products regardless of order status or analysis window."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT product_id) AS product_count FROM analytics.order_items LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     32951.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2194,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 69,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_08",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "Among orders with payment records, what percentage were paid at least partly with a voucher?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE payment_types LIKE '%voucher%') / COUNT(*) AS DECIMAL), 2) AS voucher_pct FROM analytics.payments LIMIT 501",
+   "assumptions": [
+    "'Paid at least partly with a voucher' means the order's payment_types string contains 'voucher' (payment types are joined with '+').",
+    "Denominator is all orders that have payment records (rows in analytics.payments).",
+    "No period filter is applied since the question asks overall."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE payment_types LIKE '%voucher%') / COUNT(*) AS DECIMAL), 2) AS voucher_pct FROM analytics.payments LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     3.89
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2203,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 110,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_10",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "How many orders were canceled?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS canceled_orders FROM analytics.orders WHERE order_status = 'canceled' LIMIT 501",
+   "assumptions": [
+    "'Canceled' orders are those with order_status = 'canceled'; no time period was specified, so all data is used."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS canceled_orders FROM analytics.orders WHERE order_status = 'canceled' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     625.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2192,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 57,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_12",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "How many customers are in the state of Rio de Janeiro (RJ)?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(DISTINCT customer_unique_id) AS customers FROM analytics.orders WHERE customer_state = 'RJ' LIMIT 501",
+   "assumptions": [
+    "Customers are counted as distinct customer_unique_id values, per the glossary.",
+    "Rio de Janeiro is represented by customer_state = 'RJ'.",
+    "No time period was specified, so all data is used (totals do not apply the analysis window)."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT customer_unique_id) AS customers FROM analytics.orders WHERE customer_state = 'RJ' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     12384.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2200,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 84,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "agg_13",
+   "category": "aggregate",
+   "split": "dev",
+   "question": "What was the total freight charged on sales in 2017?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(SUM(freight_total), 2) AS total_freight_2017 FROM analytics.orders WHERE is_sale AND purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) LIMIT 501",
+   "assumptions": [
+    "'Sales' means orders where is_sale is true (status not canceled or unavailable).",
+    "Freight is the sum of item freight values, reported separately from revenue.",
+    "2017 means purchase dates from 2017-01-01 through 2017-12-31."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(SUM(freight_total), 2) AS total_freight_2017 FROM analytics.orders WHERE is_sale AND purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     982076.97
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2199,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 124,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_01",
+   "category": "trend",
+   "split": "dev",
+   "question": "Show the number of orders per month in 2017.",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT purchase_month AS month, COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month >= '2017-01-01' AND purchase_month < '2018-01-01' GROUP BY purchase_month ORDER BY purchase_month LIMIT 501",
+   "assumptions": [
+    "\"Orders per month\" counts all orders by order month (purchase_month), not only sales or delivered orders.",
+    "2017 is the calendar year January to December 2017, which lies inside the analysis window."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT purchase_month AS month, COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month >= '2017-01-01' AND purchase_month < '2018-01-01' GROUP BY purchase_month ORDER BY purchase_month LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 12,
+   "rows_preview": [
+    [
+     "2017-01-01",
+     800.0
+    ],
+    [
+     "2017-02-01",
+     1780.0
+    ],
+    [
+     "2017-03-01",
+     2682.0
+    ],
+    [
+     "2017-04-01",
+     2404.0
+    ],
+    [
+     "2017-05-01",
+     3700.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2198,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 102,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_03",
+   "category": "trend",
+   "split": "dev",
+   "question": "What was the late-delivery rate for each month from January to August 2018?",
+   "status": "ok",
+   "correct": false,
+   "reason": "4 columns, expected 2 (extra columns not allowed)",
+   "sql": "WITH months AS (SELECT month FROM analytics.data_coverage WHERE in_analysis_window AND month >= CAST('2018-01-01' AS DATE) AND month <= CAST('2018-08-01' AS DATE)) SELECT m.month, COUNT(*) FILTER(WHERE o.is_delivered) AS delivered_orders, COUNT(*) FILTER(WHERE o.is_delivered AND o.is_late) AS late_orders, ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE o.is_delivered AND o.is_late) / NULLIF(COUNT(*) FILTER(WHERE o.is_delivered), 0) AS DECIMAL), 2) AS late_rate_pct FROM months AS m LEFT JOIN analytics.orders AS o ON o.purchase_month = m.month GROUP BY m.month ORDER BY m.month LIMIT 501",
+   "assumptions": [
+    "Late-delivery rate = late delivered orders / delivered orders, per the glossary.",
+    "Months are taken from data_coverage within the analysis window, January to August 2018.",
+    "Orders are grouped by purchase_month (order month).",
+    "Months with fewer than 500 orders are partial and would need a warning; the query returns the rate regardless."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH months AS (SELECT month FROM analytics.data_coverage WHERE in_analysis_window AND month >= CAST('2018-01-01' AS DATE) AND month <= CAST('2018-08-01' AS DATE)) SELECT m.month, COUNT(*) FILTER(WHERE o.is_delivered) AS delivered_orders, COUNT(*) FILTER(WHERE o.is_delivered AND o.is_late) AS late_orders, ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE o.is_delivered AND o.is_late) / NULLIF(COUNT(*) FILTER(WHERE o.is_delivered), 0) AS DECIMAL), 2) AS late_rate_pct FROM months AS m LEFT JOIN analytics.orders AS o ON o.purchase_month = m.month GROUP BY m.month ORDER BY m.month LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 8,
+   "rows_preview": [
+    [
+     "2018-01-01",
+     7069.0,
+     403.0,
+     5.7
+    ],
+    [
+     "2018-02-01",
+     6555.0,
+     926.0,
+     14.13
+    ],
+    [
+     "2018-03-01",
+     7003.0,
+     1328.0,
+     18.96
+    ],
+    [
+     "2018-04-01",
+     6798.0,
+     306.0,
+     4.5
+    ],
+    [
+     "2018-05-01",
+     6749.0,
+     443.0,
+     6.56
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2204,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 281,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trend_04",
+   "category": "trend",
+   "split": "dev",
+   "question": "Compare revenue in the first quarter of 2018 with the first quarter of 2017.",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT CAST(EXTRACT(YEAR FROM purchase_month) AS INT) AS year, SUM(items_revenue) AS revenue FROM analytics.orders WHERE is_sale AND purchase_month >= '2017-01-01' AND purchase_month < '2018-04-01' AND EXTRACT(MONTH FROM purchase_month) IN (1, 2, 3) GROUP BY 1 ORDER BY 1 LIMIT 501",
+   "assumptions": [
+    "Q1 = January, February, March.",
+    "Revenue = sum of item prices over sale orders, excluding freight.",
+    "Totals use all data in the requested period; the analysis window is not applied to overall totals.",
+    "Only Q1 2017 and Q1 2018 are compared, so the query filters to those months."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT CAST(EXTRACT(YEAR FROM purchase_month) AS INT) AS year, SUM(items_revenue) AS revenue FROM analytics.orders WHERE is_sale AND purchase_month >= '2017-01-01' AND purchase_month < '2018-04-01' AND EXTRACT(MONTH FROM purchase_month) IN (1, 2, 3) GROUP BY 1 ORDER BY 1 LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 2,
+   "rows_preview": [
+    [
+     2017.0,
+     733398.94
+    ],
+    [
+     2018.0,
+     2764402.78
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2205,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 158,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_06",
+   "category": "trend",
+   "split": "dev",
+   "question": "What is the average review score of late deliveries compared with on-time deliveries?",
+   "status": "ok",
+   "correct": false,
+   "reason": "no predicted column matches expected column(s) [0]",
+   "sql": "SELECT CASE WHEN o.is_late THEN 'late' ELSE 'on_time' END AS delivery_status, ROUND(CAST(AVG(o.review_score) AS DECIMAL), 2) AS avg_review_score, COUNT(*) AS delivered_orders_with_review FROM analytics.orders AS o WHERE o.is_delivered AND o.review_score IS NOT NULL GROUP BY 1 ORDER BY 1 LIMIT 501",
+   "assumptions": [
+    "Late means delivered date later than estimated date (orders.is_late); on-time means delivered and not late.",
+    "Only delivered orders with a review score are included, since review_score is NULL when not reviewed.",
+    "No time period was specified, so all data is used (overall figures do not apply the analysis window)."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT CASE WHEN o.is_late THEN 'late' ELSE 'on_time' END AS delivery_status, ROUND(CAST(AVG(o.review_score) AS DECIMAL), 2) AS avg_review_score, COUNT(*) AS delivered_orders_with_review FROM analytics.orders AS o WHERE o.is_delivered AND o.review_score IS NOT NULL GROUP BY 1 ORDER BY 1 LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 2,
+   "rows_preview": [
+    [
+     "late",
+     2.27,
+     6381.0
+    ],
+    [
+     "on_time",
+     4.29,
+     89443.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2201,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 152,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": "needs_review"
+  },
+  {
+   "id": "trend_07",
+   "category": "trend",
+   "split": "dev",
+   "question": "What were the top 10 product categories by revenue in 2018?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT category, ROUND(SUM(price), 2) AS revenue FROM analytics.order_items WHERE is_sale AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY category ORDER BY revenue DESC LIMIT 10",
+   "assumptions": [
+    "Revenue is the sum of item price over sale orders, excluding freight.",
+    "2018 means the calendar year 2018 (January 1 to December 31, 2018); this is a total, so the analysis window is not applied.",
+    "Categories are grouped by the English category name as stored in order_items.category."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT category, ROUND(SUM(price), 2) AS revenue FROM analytics.order_items WHERE is_sale AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY category ORDER BY revenue DESC LIMIT 10",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 10,
+   "rows_preview": [
+    [
+     "health_beauty",
+     770002.81
+    ],
+    [
+     "watches_gifts",
+     708305.95
+    ],
+    [
+     "bed_bath_table",
+     537514.13
+    ],
+    [
+     "sports_leisure",
+     530182.18
+    ],
+    [
+     "computers_accessories",
+     502432.09
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2201,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 137,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_09",
+   "category": "trend",
+   "split": "dev",
+   "question": "Which 5 customer states have the longest average delivery time for delivered orders?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT customer_state, ROUND(CAST(AVG(delivery_days) AS DECIMAL), 2) AS avg_delivery_days FROM analytics.orders WHERE is_delivered = TRUE AND delivery_days IS NOT NULL GROUP BY customer_state ORDER BY avg_delivery_days DESC LIMIT 5",
+   "assumptions": [
+    "Delivery time is measured by orders.delivery_days (customer delivery minus purchase, in days).",
+    "Only delivered orders with a non-null delivery_days are included.",
+    "No minimum order count per state was required since the question asks only for the top 5 states by average delivery time."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT customer_state, ROUND(CAST(AVG(delivery_days) AS DECIMAL), 2) AS avg_delivery_days FROM analytics.orders WHERE is_delivered = TRUE AND delivery_days IS NOT NULL GROUP BY customer_state ORDER BY avg_delivery_days DESC LIMIT 5",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 5,
+   "rows_preview": [
+    [
+     "RR",
+     29.39
+    ],
+    [
+     "AP",
+     27.19
+    ],
+    [
+     "AM",
+     26.43
+    ],
+    [
+     "AL",
+     24.54
+    ],
+    [
+     "PA",
+     23.77
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2201,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 131,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_10",
+   "category": "trend",
+   "split": "dev",
+   "question": "How did the number of orders in January to August 2018 compare with January to August 2017?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT CAST(EXTRACT(YEAR FROM purchase_month) AS INT) AS year, COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month BETWEEN '2017-01-01' AND '2017-08-01' OR purchase_month BETWEEN '2018-01-01' AND '2018-08-01' GROUP BY 1 ORDER BY 1 LIMIT 501",
+   "assumptions": [
+    "Compared the same January-August period in 2017 and 2018.",
+    "Counted all orders regardless of status, since the question asks about order volume.",
+    "Used orders.purchase_month to assign orders to months."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT CAST(EXTRACT(YEAR FROM purchase_month) AS INT) AS year, COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month BETWEEN '2017-01-01' AND '2017-08-01' OR purchase_month BETWEEN '2018-01-01' AND '2018-08-01' GROUP BY 1 ORDER BY 1 LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 2,
+   "rows_preview": [
+    [
+     2017.0,
+     22968.0
+    ],
+    [
+     2018.0,
+     53991.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2208,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 129,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trend_12",
+   "category": "trend",
+   "split": "dev",
+   "question": "Compare the 2018 late-delivery rate for customers in SP with customers in RJ.",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT customer_state, ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE is_late) / COUNT(*) AS DECIMAL), 2) AS late_rate_pct, COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered AND customer_state IN ('SP', 'RJ') AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY customer_state ORDER BY customer_state LIMIT 501",
+   "assumptions": [
+    "Late-delivery rate = late delivered orders divided by delivered orders (is_delivered), per glossary.",
+    "2018 means purchases from 2018-01-01 to 2018-12-31; the analysis window covers Jan-Aug 2018, but the question asks for the full year 2018 and totals/overall figures do not apply the window restriction.",
+    "Customer state is taken from orders.customer_state."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT customer_state, ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE is_late) / COUNT(*) AS DECIMAL), 2) AS late_rate_pct, COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered AND customer_state IN ('SP', 'RJ') AND purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY customer_state ORDER BY customer_state LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 2,
+   "rows_preview": [
+    [
+     "RJ",
+     13.73,
+     6342.0
+    ],
+    [
+     "SP",
+     5.0,
+     23329.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2204,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 192,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_02",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many unique customers placed orders in 2017?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(DISTINCT customer_unique_id) AS unique_customers FROM analytics.orders WHERE purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) LIMIT 501",
+   "assumptions": [
+    "'Placed orders' means any order in 2017 regardless of status, since the question does not restrict to sales or delivered orders.",
+    "Customers are counted by customer_unique_id, per the glossary."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT customer_unique_id) AS unique_customers FROM analytics.orders WHERE purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     43713.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2197,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 96,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_03",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many delivered orders arrived late?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS late_orders FROM analytics.orders WHERE is_late = TRUE LIMIT 501",
+   "assumptions": [
+    "Late means a delivered order whose delivery date is later than the estimated delivery date, as implemented by orders.is_late.",
+    "Counts all delivered late orders across all data, since no period was specified."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS late_orders FROM analytics.orders WHERE is_late = TRUE LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     6534.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2193,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 69,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_05",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many order items are for products that have no category?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS uncategorized_items FROM analytics.order_items WHERE category = 'unknown' LIMIT 501",
+   "assumptions": [
+    "Products with no category are represented by the category value 'unknown' per the glossary.",
+    "Counting order items, so each row in order_items counts once."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS uncategorized_items FROM analytics.order_items WHERE category = 'unknown' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1603.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2198,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 59,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_06",
+   "category": "trap",
+   "split": "dev",
+   "question": "Which 5 sellers have the worst late-delivery rate?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "WITH seller_orders AS (SELECT oi.seller_id, COUNT(DISTINCT oi.order_id) AS orders_count, COUNT(DISTINCT CASE WHEN o.is_late THEN oi.order_id END) AS late_orders FROM analytics.order_items AS oi JOIN analytics.orders AS o ON o.order_id = oi.order_id WHERE o.is_delivered GROUP BY oi.seller_id) SELECT seller_id, orders_count, late_orders, ROUND(100.0 * late_orders / orders_count, 2) AS late_rate_pct FROM seller_orders WHERE orders_count >= 30 ORDER BY late_rate_pct DESC, orders_count DESC LIMIT 5",
+   "assumptions": [
+    "Late rate = late delivered orders / delivered orders, computed per seller using distinct orders (an order with items from multiple sellers counts for each of those sellers).",
+    "Ranking eligibility requires at least 30 orders per seller, per the glossary.",
+    "Only delivered orders are considered, since is_late is NULL for non-delivered orders."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH seller_orders AS (SELECT oi.seller_id, COUNT(DISTINCT oi.order_id) AS orders_count, COUNT(DISTINCT CASE WHEN o.is_late THEN oi.order_id END) AS late_orders FROM analytics.order_items AS oi JOIN analytics.orders AS o ON o.order_id = oi.order_id WHERE o.is_delivered GROUP BY oi.seller_id) SELECT seller_id, orders_count, late_orders, ROUND(100.0 * late_orders / orders_count, 2) AS late_rate_pct FROM seller_orders WHERE orders_count >= 30 ORDER BY late_rate_pct DESC, orders_count DESC LIMIT 5",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 5,
+   "rows_preview": [
+    [
+     "ede0c03645598cdfc63ca8237acbe73d",
+     43.0,
+     14.0,
+     32.56
+    ],
+    [
+     "ad781527c93d00d89a11eecd9dcad7c1",
+     38.0,
+     12.0,
+     31.58
+    ],
+    [
+     "54965bbe3e4f07ae045b90b0b8541f52",
+     73.0,
+     22.0,
+     30.14
+    ],
+    [
+     "2a1348e9addc1af5aaa619b1a3679d6b",
+     48.0,
+     13.0,
+     27.08
+    ],
+    [
+     "835f0f7810c76831d6c7d24c7a646d4d",
+     42.0,
+     11.0,
+     26.19
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2198,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 245,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_08",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many orders received a 1-star review?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS orders_with_1_star FROM analytics.reviews WHERE review_score = 1 LIMIT 501",
+   "assumptions": [
+    "Counts reviewed orders whose latest answered review score is 1, using analytics.reviews (one row per reviewed order).",
+    "No time period was specified, so all data is used."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS orders_with_1_star FROM analytics.reviews WHERE review_score = 1 LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     11363.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2196,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 69,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_09",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many orders included items from seller 6560211a19b47992c3666cc44a7e94c0?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(DISTINCT order_id) AS orders_count FROM analytics.order_items WHERE seller_id = '6560211a19b47992c3666cc44a7e94c0' LIMIT 501",
+   "assumptions": [
+    "Counted distinct orders containing at least one item from the given seller; no time window was specified, so all data is used."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(DISTINCT order_id) AS orders_count FROM analytics.order_items WHERE seller_id = '6560211a19b47992c3666cc44a7e94c0' LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     1854.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2214,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 77,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_11",
+   "category": "trap",
+   "split": "dev",
+   "question": "What was the total revenue in 2016?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT SUM(price) AS total_revenue FROM analytics.order_items WHERE is_sale AND purchase_date >= CAST('2016-01-01' AS DATE) AND purchase_date < CAST('2017-01-01' AS DATE) LIMIT 501",
+   "assumptions": [
+    "Revenue = sum of item price over sales (is_sale), excluding freight.",
+    "2016 means calendar year 2016; the analysis window does not apply to totals, so all 2016 data is used."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT SUM(price) AS total_revenue FROM analytics.order_items WHERE is_sale AND purchase_date >= CAST('2016-01-01' AS DATE) AND purchase_date < CAST('2017-01-01' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     44726.06
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2196,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 98,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_12",
+   "category": "trap",
+   "split": "dev",
+   "question": "How many orders were placed last month?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month = CAST('2018-07-01' AS DATE) LIMIT 501",
+   "assumptions": [
+    "'Last month' resolved against today's date 2018-08-31, so it means July 2018.",
+    "Counts all orders placed in July 2018, regardless of status."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT COUNT(*) AS orders_count FROM analytics.orders WHERE purchase_month = CAST('2018-07-01' AS DATE) LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     6292.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2194,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 75,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "trap_13",
+   "category": "trap",
+   "split": "dev",
+   "question": "What percentage of customers have placed more than one order?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "WITH customer_orders AS (SELECT customer_unique_id, COUNT(*) AS order_count FROM analytics.orders GROUP BY customer_unique_id) SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE order_count > 1) / COUNT(*) AS DECIMAL), 2) AS repeat_customer_pct FROM customer_orders LIMIT 501",
+   "assumptions": [
+    "A customer is identified by customer_unique_id, per the glossary.",
+    "All orders count toward the customer's order count, regardless of status, since the question asks about orders placed.",
+    "The percentage is computed over all customers in the orders table (no period restriction given)."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH customer_orders AS (SELECT customer_unique_id, COUNT(*) AS order_count FROM analytics.orders GROUP BY customer_unique_id) SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE order_count > 1) / COUNT(*) AS DECIMAL), 2) AS repeat_customer_pct FROM customer_orders LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     3.12
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2197,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 138,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "ambig_01",
+   "category": "ambiguous",
+   "split": "dev",
+   "question": "What is our best-selling category?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT category, SUM(price) AS revenue FROM analytics.order_items WHERE is_sale GROUP BY category ORDER BY revenue DESC LIMIT 1",
+   "assumptions": [
+    "'Best-selling' interpreted as highest revenue (sum of item price over sales, excluding freight); a unit-count interpretation would rank differently.",
+    "All data used, no period restriction, since no period was given.",
+    "Categories with unknown or untranslated names are kept as-is."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT category, SUM(price) AS revenue FROM analytics.order_items WHERE is_sale GROUP BY category ORDER BY revenue DESC LIMIT 1",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "health_beauty",
+     1255695.13
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2193,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 95,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "ambig_02",
+   "category": "ambiguous",
+   "split": "dev",
+   "question": "How fast is our delivery?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT ROUND(CAST(AVG(delivery_days) AS DECIMAL), 2) AS avg_delivery_days, ROUND(CAST(AVG(seller_handling_days) AS DECIMAL), 2) AS avg_seller_handling_days, ROUND(CAST(AVG(carrier_transit_days) AS DECIMAL), 2) AS avg_carrier_transit_days, ROUND(CAST(AVG(promised_days) AS DECIMAL), 2) AS avg_promised_days, COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered = TRUE LIMIT 501",
+   "assumptions": [
+    "'How fast' is interpreted as average delivery time for delivered orders, broken into seller handling and carrier transit stages.",
+    "Overall figures use all delivered orders, not just the analysis window, per the glossary.",
+    "Averages are computed over non-NULL stage durations; impossible (negative) durations are already NULL in the views."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT ROUND(CAST(AVG(delivery_days) AS DECIMAL), 2) AS avg_delivery_days, ROUND(CAST(AVG(seller_handling_days) AS DECIMAL), 2) AS avg_seller_handling_days, ROUND(CAST(AVG(carrier_transit_days) AS DECIMAL), 2) AS avg_carrier_transit_days, ROUND(CAST(AVG(promised_days) AS DECIMAL), 2) AS avg_promised_days, COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered = TRUE LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     12.56,
+     3.23,
+     9.33,
+     23.74,
+     96470.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2192,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 198,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "ambig_04",
+   "category": "ambiguous",
+   "split": "dev",
+   "question": "Which state is our biggest market?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "SELECT customer_state, SUM(items_revenue) AS revenue FROM analytics.orders WHERE is_sale GROUP BY customer_state ORDER BY revenue DESC LIMIT 1",
+   "assumptions": [
+    "'Biggest market' interpreted as the customer state with the highest total revenue (sum of item prices over sale orders, excluding freight).",
+    "No time period given, so all data is used (the analysis window does not apply to overall totals)."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "SELECT customer_state, SUM(items_revenue) AS revenue FROM analytics.orders WHERE is_sale GROUP BY customer_state ORDER BY revenue DESC LIMIT 1",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 1,
+   "rows_preview": [
+    [
+     "SP",
+     5163867.22
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2193,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 93,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  },
+  {
+   "id": "ambig_05",
+   "category": "ambiguous",
+   "split": "dev",
+   "question": "How are review scores trending?",
+   "status": "ok",
+   "correct": true,
+   "reason": "",
+   "sql": "WITH monthly AS (SELECT o.purchase_month AS month, AVG(o.review_score) AS avg_review_score, COUNT(o.review_score) AS reviewed_orders FROM analytics.orders AS o JOIN analytics.data_coverage AS dc ON dc.month = o.purchase_month WHERE dc.in_analysis_window AND o.review_score IS NOT NULL GROUP BY o.purchase_month) SELECT month, ROUND(avg_review_score, 2) AS avg_review_score, reviewed_orders FROM monthly ORDER BY month LIMIT 501",
+   "assumptions": [
+    "Trend is measured as the monthly average review score over the analysis window (Jan 2017 - Aug 2018), using orders.purchase_month.",
+    "Only orders with a review score are counted; review_score is the latest answered review per order.",
+    "Months outside the analysis window are excluded because data there is sparse."
+   ],
+   "repairs": 0,
+   "attempts": [
+    {
+     "sql": "WITH monthly AS (SELECT o.purchase_month AS month, AVG(o.review_score) AS avg_review_score, COUNT(o.review_score) AS reviewed_orders FROM analytics.orders AS o JOIN analytics.data_coverage AS dc ON dc.month = o.purchase_month WHERE dc.in_analysis_window AND o.review_score IS NOT NULL GROUP BY o.purchase_month) SELECT month, ROUND(avg_review_score, 2) AS avg_review_score, reviewed_orders FROM monthly ORDER BY month LIMIT 501",
+     "stage": "ok",
+     "feedback": ""
+    }
+   ],
+   "row_count": 20,
+   "rows_preview": [
+    [
+     "2017-01-01",
+     4.06,
+     790.0
+    ],
+    [
+     "2017-02-01",
+     4.02,
+     1768.0
+    ],
+    [
+     "2017-03-01",
+     4.07,
+     2661.0
+    ],
+    [
+     "2017-04-01",
+     4.04,
+     2387.0
+    ],
+    [
+     "2017-05-01",
+     4.14,
+     3666.0
+    ]
+   ],
+   "cost_usd": 0.0,
+   "latency_ms": 0,
+   "tokens_in": 2192,
+   "tokens_cache_hit": 2048,
+   "tokens_out": 204,
+   "llm_calls": 1,
+   "cached_calls": 1,
+   "failure_tag": "",
+   "auto_tag": ""
+  }
+ ]
+}
