@@ -180,6 +180,8 @@ To work on the UI with no backend and no model calls ($0), `npm run dev:mock` st
 
 The original Streamlit UI still works as a simple fallback: `.venv/Scripts/python -m streamlit run src/orderintel/ui/app.py -- --local` (http://localhost:8501). Every request is traced; summarise the traces with `.venv/Scripts/python scripts/trace_report.py`.
 
+**Deploying.** `docker compose --profile app up -d --build` runs the whole app (API, web app, and Caddy for HTTPS with a free Let's Encrypt certificate) next to the database; only Caddy is reachable from the network. [docs/deploy.md](docs/deploy.md) is the step-by-step guide for a free AWS server with a free DuckDNS name, and `deploy/compose.rehearsal.yml` rehearses it on a laptop at $0 (model calls off, emails printed).
+
 API: `POST /v1/ask`, `GET /v1/catalog` (the data guide: counts, tables, definitions, example questions; no model call), `GET /v1/requests/{id}`, `GET /v1/sessions` and `GET /v1/sessions/{id}` (saved conversations, read from the traces), `POST /v1/sessions/{id}/scope/clear`, `GET /v1/budget` (all need a signed-in user's `Authorization: Bearer` session or the `X-Access-Code` operator key), the account endpoints `/v1/auth/*` (sign-in with emailed codes, password reset), `/v1/account/*` and `/v1/admin/*`, and `GET /v1/health`. Set `LLM_ENABLED=false` in `.env` to block all model calls.
 
 ## Tests and evaluation

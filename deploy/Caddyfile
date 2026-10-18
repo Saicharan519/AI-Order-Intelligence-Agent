@@ -1,0 +1,21 @@
+# Caddy: the only part of the deployment the internet can reach. It gets a free HTTPS
+# certificate for SITE_ADDRESS from Let's Encrypt and renews it by itself (for "localhost" it
+# uses its own local certificate instead), redirects http:// to https://, and passes requests
+# to the web app on Docker's private network.
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# X-Forwarded-For is set by Caddy from the visitor's address (anything the visitor sent
+	# in that header is ignored), and the web app passes it on to the API.
+	reverse_proxy web:3000
+}

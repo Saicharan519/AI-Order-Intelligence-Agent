@@ -1,0 +1,24 @@
+# A dress rehearsal of the deployment on a laptop, at $0: the same images and Caddy, with
+# model calls switched off (the kill switch) and emails printed instead of sent. Run it as a
+# separate Compose project with its own empty database, next to the development one:
+#
+#   export HTTP_PORT=8080 HTTPS_PORT=8443 POSTGRES_PORT=5433
+#   docker compose -p oi-rehearsal -f docker-compose.yml -f deploy/compose.rehearsal.yml --profile app up -d --build
+#
+# Load the data and make a throwaway admin in the rehearsal database (made-up test values,
+# never used anywhere else):
+#   docker compose -p oi-rehearsal ... run --rm --no-deps api python scripts/migrate.py
+#   docker compose -p oi-rehearsal ... run --rm --no-deps -v "$PWD/data/raw:/app/data/raw:ro" api python scripts/load_data.py
+#   docker compose -p oi-rehearsal ... run --rm --no-deps api python -c "from orderintel.auth.store import AccountStore; AccountStore().create_user('rehearsal@accounts.test', 'Rehearsal Admin', 'rehearsal passphrase 1', role='admin')"
+# Then open https://localhost:8443 (Caddy's local certificate: the browser warns once).
+# Remove it, data included, with:
+#   docker compose -p oi-rehearsal -f docker-compose.yml -f deploy/compose.rehearsal.yml --profile app down -v
+services:
+  api:
+    environment:
+      LLM_ENABLED: "false"
+      MAIL_MODE: console
+      APP_URL: https://localhost:8443
+  caddy:
+    environment:
+      SITE_ADDRESS: localhost

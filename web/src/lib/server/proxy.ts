@@ -8,6 +8,9 @@
 // * signOut(): end the session at the API and clear the cookie.
 // * Every POST must come from this app's own pages (Origin check), so another website
 //   cannot make a signed-in browser send requests here (cross-site request forgery).
+// * Behind Caddy (TRUST_PROXY=1, set in the Docker deployment only), the visitor's address
+//   from Caddy's X-Forwarded-For goes to the API, so sign-in and email limits count each
+//   visitor separately instead of everyone as this server.
 
 import { allowed, apiUrl } from "./upstream";
 
@@ -45,15 +48,27 @@ export function sessionToken(request: Request): string | null {
   return readCookie(request, COOKIE);
 }
 
+/** The address the browser used. Behind Caddy (TRUST_PROXY=1) this server is reached over
+ * plain http inside Docker, so the browser's https address comes from Caddy's
+ * X-Forwarded-Proto and X-Forwarded-Host (Caddy sets them and ignores any a visitor sends). */
+export function publicOrigin(request: Request): string {
+  const url = new URL(request.url);
+  if (process.env.TRUST_PROXY !== "1") return url.origin;
+  const proto = (request.headers.get("x-forwarded-proto") ?? "").split(",")[0].trim();
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(",")[0].trim();
+  const scheme = proto === "https" || proto === "http" ? proto : url.protocol.replace(":", "");
+  return /^[A-Za-z0-9.:[\]-]{1,255}$/.test(host) ? `${scheme}://${host}` : url.origin;
+}
+
 function cookie(request: Request, name: string, value: string, maxAge: number, path = "/"): string {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  const secure = publicOrigin(request).startsWith("https:") ? "; Secure" : "";
   return `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
 /** POSTs must come from this app's own origin (cross-site request forgery protection). */
 export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  return origin !== null && origin === new URL(request.url).origin;
+  return origin !== null && origin === publicOrigin(request);
 }
 
 async function readBody(request: Request): Promise<string | Response> {
@@ -64,16 +79,26 @@ async function readBody(request: Request): Promise<string | Response> {
   return body;
 }
 
+/** The visitor's address as Caddy saw it; only when this server runs behind Caddy, because
+ * anyone can send an X-Forwarded-For header to a server that is reached directly. */
+export function clientAddress(request: Request): string | null {
+  if (process.env.TRUST_PROXY !== "1") return null;
+  const first = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+  return /^[0-9a-fA-F.:]{2,45}$/.test(first) ? first : null;
+}
+
 async function callApi(
   method: string,
   subpath: string,
   token: string | null,
   body: string | undefined,
   fetchImpl: typeof fetch,
+  client: string | null = null,
 ): Promise<Response> {
   const headers: Record<string, string> = {};
   if (token) headers.authorization = `Bearer ${token}`;
   if (body !== undefined) headers["content-type"] = "application/json";
+  if (client) headers["x-forwarded-for"] = client;
   try {
     return await fetchImpl(`${apiUrl()}/${subpath}`, {
       method,
@@ -116,7 +141,7 @@ export async function forward(
     body = read;
   }
 
-  const upstream = await callApi(method, subpath, sessionToken(request), body, fetchImpl);
+  const upstream = await callApi(method, subpath, sessionToken(request), body, fetchImpl, clientAddress(request));
   const data = await jsonOf(upstream);
   if (data instanceof Response) return data;
   const out = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
@@ -169,7 +194,7 @@ export async function authFlow(request: Request, action: string, fetchImpl: type
     if (device) body.device = device;
   }
 
-  const upstream = await callApi("POST", step.path, null, JSON.stringify(body), fetchImpl);
+  const upstream = await callApi("POST", step.path, null, JSON.stringify(body), fetchImpl, clientAddress(request));
   const data = await jsonOf(upstream);
   if (data instanceof Response) return data;
   const out = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
@@ -200,7 +225,7 @@ export function signUp(request: Request, fetchImpl: typeof fetch = fetch): Promi
 export async function signOut(request: Request, fetchImpl: typeof fetch = fetch): Promise<Response> {
   if (!sameOrigin(request)) return error(403, "forbidden", "Requests must come from this app.");
   const token = sessionToken(request);
-  if (token) await callApi("POST", "v1/auth/logout", token, undefined, fetchImpl);
+  if (token) await callApi("POST", "v1/auth/logout", token, undefined, fetchImpl, clientAddress(request));
   const out = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
   out.append("set-cookie", cookie(request, COOKIE, "", 0));
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: out });

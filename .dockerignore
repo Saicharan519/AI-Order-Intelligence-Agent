@@ -1,0 +1,22 @@
+# The API image gets only what it runs (see Dockerfile). Never secrets, data or local caches.
+.env
+.env.*
+.git
+.github
+.githooks
+.venv
+.claude
+.agents
+.pytest_cache
+.ruff_cache
+**/__pycache__
+*.py[cod]
+data
+web
+docs
+tests
+eval/cache
+eval/results
+eval/reports
+eval/reviews
+*.ledger.jsonl

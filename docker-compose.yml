@@ -1,5 +1,11 @@
 name: orderintel
 
+# Local development uses only the database:   docker compose up -d db
+# The full app (API, web app, Caddy with HTTPS) is in the "app" profile, for the server:
+#   docker compose --profile app up -d --build
+# See docs/deploy.md. Only Caddy publishes ports to the network; the database is bound to
+# localhost and the API and web app are reachable only on Docker's private network.
+
 services:
   db:
     # Pinned minor version for reproducibility (checked 2026-10-15; 19 is still beta).
@@ -23,6 +29,62 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  api:
+    profiles: ["app"]
+    build: .
+    env_file: .env
+    environment:
+      # Inside Docker the database is the "db" service on its own port, whatever .env says
+      # for local development.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      LLM_CACHE_DIR: /app/eval/cache/llm
+      DATA_DIR: /app/data/raw
+    volumes:
+      - llmcache:/app/eval/cache/llm
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    profiles: ["app"]
+    build: ./web
+    environment:
+      API_URL: http://api:8000
+      TRUST_PROXY: "1"  # behind Caddy: pass the visitor's address on to the API
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    profiles: ["app"]
+    image: caddy:2.11-alpine
+    environment:
+      # The public name, e.g. orderintel.duckdns.org (set in .env on the server). The default
+      # serves https://localhost with Caddy's local certificate, for a rehearsal on a laptop.
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data    # certificates: kept across restarts (Let's Encrypt has rate limits)
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
 volumes:
-  # Named Docker volume (lives inside Docker, not in this OneDrive folder).
+  # Named Docker volumes (they live inside Docker, not in this OneDrive folder).
   pgdata:
+  llmcache:
+  caddy_data:
+  caddy_config:

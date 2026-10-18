@@ -3,7 +3,7 @@
 // only from this app's own pages.
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { authFlow, CHALLENGE, COOKIE, DEVICE, forward, sameOrigin, sessionToken, signIn, signOut, signUp } from "@/lib/server/proxy";
+import { authFlow, CHALLENGE, clientAddress, COOKIE, DEVICE, forward, publicOrigin, sameOrigin, sessionToken, signIn, signOut, signUp } from "@/lib/server/proxy";
 import { allowed, parseEnv } from "@/lib/server/upstream";
 
 const APP = "http://localhost:3000";
@@ -288,5 +288,61 @@ describe("emailed codes and password reset", () => {
     expect((await authFlow(req("/api/auth/forgot", { method: "POST", body: "[1]" }), "forgot", f)).status).toBe(400);
     expect((await authFlow(req("/api/auth/toString", { method: "POST", body: "{}" }), "toString", f)).status).toBe(404);
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe("the visitor's address behind Caddy", () => {
+  const xff = (value: string) => req("/api/v1/health", { headers: { "x-forwarded-for": value } });
+
+  it("is ignored unless the server is told it runs behind Caddy", async () => {
+    vi.stubEnv("TRUST_PROXY", "");
+    expect(clientAddress(xff("203.0.113.7"))).toBeNull();
+    const f = okFetch();
+    await forward(xff("203.0.113.7"), ["v1", "health"], f);
+    expect(f.mock.calls[0][1]?.headers).toEqual({}); // nothing a browser sent is passed on
+    vi.unstubAllEnvs();
+  });
+
+  it("passes on Caddy's first address, and only a well-formed one", async () => {
+    vi.stubEnv("TRUST_PROXY", "1");
+    expect(clientAddress(xff("203.0.113.7, 10.0.0.2"))).toBe("203.0.113.7");
+    expect(clientAddress(xff("2001:db8::1"))).toBe("2001:db8::1");
+    expect(clientAddress(xff("evil<script>"))).toBeNull();
+    const f = okFetch();
+    await signIn(req("/api/auth/login", { method: "POST", headers: { "x-forwarded-for": "203.0.113.7" }, body: "{}" }), f);
+    expect(f.mock.calls[0][1]?.headers).toEqual({ "content-type": "application/json", "x-forwarded-for": "203.0.113.7" });
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("https behind Caddy", () => {
+  // Inside Docker, Caddy reaches this server over plain http at the same host name.
+  const behind = (headers: Record<string, string>, init: { method?: string; body?: string; origin?: string } = {}) =>
+    new Request("http://shop.example/api/auth/login", {
+      method: init.method ?? "GET",
+      body: init.body,
+      headers: { host: "shop.example", ...(init.origin ? { origin: init.origin } : {}), ...headers },
+    });
+  const fwd = { "x-forwarded-proto": "https", "x-forwarded-host": "shop.example" };
+
+  it("trusts Caddy's https only when told it runs behind Caddy", () => {
+    vi.stubEnv("TRUST_PROXY", "");
+    expect(publicOrigin(behind(fwd))).toBe("http://shop.example");
+    vi.stubEnv("TRUST_PROXY", "1");
+    expect(publicOrigin(behind(fwd))).toBe("https://shop.example");
+    expect(publicOrigin(behind({ "x-forwarded-proto": "gopher", host: "shop.example" }))).toBe("http://shop.example");
+    expect(publicOrigin(behind({ "x-forwarded-proto": "https", "x-forwarded-host": "evil/<x>" }))).toBe("http://shop.example");
+    vi.unstubAllEnvs();
+  });
+
+  it("accepts the browser's https origin and marks the session cookie Secure", async () => {
+    vi.stubEnv("TRUST_PROXY", "1");
+    expect(sameOrigin(behind(fwd, { origin: "https://shop.example" }))).toBe(true);
+    expect(sameOrigin(behind(fwd, { origin: "https://evil.example" }))).toBe(false);
+    const f = okFetch({ token: TOKEN, user: { id: "u1" } });
+    const r = await signIn(behind(fwd, { method: "POST", origin: "https://shop.example", body: "{}" }), f);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("set-cookie")).toContain("; Secure");
+    vi.unstubAllEnvs();
   });
 });

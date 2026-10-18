@@ -128,6 +128,18 @@ Owner testing found wrong or inconsistent answers and misleading charts (list in
 - `scripts/claim_conversations.py --email ... [--apply]`: gives the API's unowned question rows (asked with the operator key before accounts existed) to one account; it shows the count first and changes nothing without `--apply`. Evaluation runs, tests and model-call rows are not touched. Run for the owner: 48 questions in 15 conversations moved; 0 unowned left.
 - Real emails are on: the owner set up Gmail sending with an App Password and tested a real invite.
 
+### Same day — M11 part 1: Docker deployment, rehearsed on the laptop (owner-approved; no spend)
+
+- **Images:** `Dockerfile` (API and one-off jobs: migrations, loader, create_admin; Python 3.12 slim, unprivileged user, uvicorn with proxy headers) and `web/Dockerfile` (Next.js `output: "standalone"`, three stages, `node` user). `.dockerignore` files keep `.env`, data, caches, tests and git out of the images. Pinned base images checked on Docker Hub: `python:3.12.13-slim-bookworm`, `node:24.11-bookworm-slim`, `caddy:2.11-alpine`.
+- **Compose:** `api`, `web` and `caddy` in a new `app` profile, so `docker compose up -d db` works as before (checked: it lists only `db` and needs no new variable; a required `SITE_ADDRESS` first broke it, so it now defaults to `localhost`). Only Caddy publishes ports; Caddy gets and renews the HTTPS certificate for `SITE_ADDRESS`, redirects http to https and adds security headers (`deploy/Caddyfile`).
+- **Two problems found by rehearsing, fixed:** (1) behind Caddy the web server sees `http://`, so the same-origin check refused every sign-in with 403 and the cookie would not be Secure; with `TRUST_PROXY=1` the proxy now takes the public origin from Caddy's X-Forwarded-Proto and -Host. (2) every request reached the API from the web container's address, so the per-client sign-in and email limits would have counted all visitors as one; the proxy now passes Caddy's X-Forwarded-For and the API trusts it (`--proxy-headers`; the API is reachable only on Docker's private network). Both only when `TRUST_PROXY=1`; 4 new proxy tests.
+- **Rehearsal** (`deploy/compose.rehearsal.yml`, project `oi-rehearsal`, its own empty database, model calls off, emails printed): 9 migrations applied from scratch inside the container; the real CSVs loaded (550,759 rows in 14 s, every count checked); through Caddy over https: password, code from the printed email, signed in with Secure HttpOnly cookies (the device cookie limited to `/api/auth`); the data guide loaded; questions refused by the kill switch ($0); the API logged the caller's address, not the web container's; security headers present; only Caddy's ports published; containers run as `app` and `node`; about 340 MB of memory in total when idle. Images: API 989 MB, web 421 MB. The owner's development database and servers were not touched.
+- **Guide:** `docs/deploy.md` (AWS Free plan rules checked 2026-10-18, MFA and a zero-spend budget, Mumbai region, DuckDNS name, t3.small with 20 GB, security group, Docker, the server's `.env`, copying the CSVs, build, migrate, load, admin, start, smoke test with approval, operations, kill switch, teardown).
+- **Checks:** web 86 passed; lint, type-check and the Windows build clean (standalone output works there too).
+- **Not done:** no AWS resource exists yet; the smoke test with real model calls needs approval on the server. `scripts/smoke.py`, named in the technical design, does not exist; the smoke test is two or three questions in the web app.
+
+**API cost:** $0.
+
 ## 2026-10-17 — M10: CI, variance, model comparison, README, fresh-clone test (owner-approved runs)
 
 **Completed**
