@@ -1,13 +1,13 @@
-// Admin: invite people (one-time links), see accounts with their spend, disable or enable
-// accounts, and revoke unused invites. Only admins get data from these endpoints; anyone
+// Admin: invite people (a one-time link, emailed to them and shown once to copy), see accounts with their spend, disable or enable
+// or delete accounts, and revoke unused invites. Only admins get data from these endpoints; anyone
 // else sees a short message.
 "use client";
 
 import clsx from "clsx";
-import { ArrowLeft, Check, Copy, Link2, Loader2, Mail, ShieldAlert, UserPlus } from "lucide-react";
+import { ArrowLeft, Ban, Check, Copy, Link2, Loader2, Mail, MailCheck, Send, ShieldAlert, Trash2, UserCheck, UserPlus, UserX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { httpApi, type Api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import type { AdminInvite, AdminUser, UserInfo } from "@/lib/types";
@@ -17,6 +17,65 @@ const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
 const STATUS_TONE = { pending: "brand", used: "good", revoked: "neutral", expired: "warn" } as const;
+
+// A red action that asks once before it runs ("Block sign-in?  No  Yes, disable").
+function ConfirmAction({
+  label,
+  icon,
+  question,
+  confirm,
+  onConfirm,
+  iconOnly = false,
+  hint,
+}: {
+  label: string;
+  icon: ReactNode;
+  question: string;
+  confirm: string;
+  onConfirm: () => Promise<void>;
+  iconOnly?: boolean;
+  hint?: string;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!asking) {
+    return (
+      <Button
+        size="sm"
+        variant="danger"
+        onClick={() => setAsking(true)}
+        aria-label={iconOnly ? label : undefined}
+        title={hint}
+        className={iconOnly ? "w-7 px-0" : undefined}
+      >
+        {icon}
+        {!iconOnly && label}
+      </Button>
+    );
+  }
+  return (
+    <span className="animate-fade-in inline-flex items-center gap-1.5">
+      <span className="text-xs text-zinc-600">{question}</span>
+      <Button size="sm" variant="ghost" onClick={() => setAsking(false)} disabled={busy}>
+        No
+      </Button>
+      <Button
+        size="sm"
+        variant="danger"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          await onConfirm();
+          setBusy(false);
+          setAsking(false);
+        }}
+      >
+        {busy && <Loader2 className="size-3.5 animate-spin" />}
+        {confirm}
+      </Button>
+    </span>
+  );
+}
 
 function CopyLink({ link }: { link: string }) {
   const [copied, setCopied] = useState(false);
@@ -45,7 +104,8 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ email: string; link: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ email: string; link: string; sent: boolean; mode: string } | null>(null);
 
   const load = useCallback(async () => {
     const [u, i] = await Promise.all([api.adminUsers(), api.adminInvites()]);
@@ -79,8 +139,24 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
       setError(errorMessage(r.code));
       return;
     }
-    setCreated({ email: r.data.invite.email, link: `${window.location.origin}/signup?invite=${r.data.code}` });
+    setCreated({
+      email: r.data.invite.email,
+      link: `${window.location.origin}/signup?invite=${r.data.code}`,
+      sent: r.data.mail?.sent ?? false,
+      mode: r.data.mail?.mode ?? "",
+    });
     setEmail("");
+    load();
+  };
+
+  const remove = async (u: AdminUser) => {
+    setNotice(null);
+    const r = await api.deleteUser(u.id);
+    if (!r.ok) setError(errorMessage(r.code));
+    else {
+      const n = r.data.questions_removed;
+      setNotice(`Deleted ${u.name} (${u.email}) with ${n} question${n === 1 ? "" : "s"}. Their spending stays in the totals.`);
+    }
     load();
   };
 
@@ -135,8 +211,8 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                 <div>
                   <h2 className="text-base font-semibold text-zinc-900">Invite someone</h2>
                   <p className="mt-0.5 text-sm text-zinc-600">
-                    You get a one-time link to send them yourself. They choose their own name and password. The link works once
-                    and expires after 7 days.
+                    We email them a one-time link (you also get it to copy, as a backup). They choose their own name and
+                    password. The link works once and expires after 7 days.
                   </p>
                 </div>
               </div>
@@ -155,7 +231,7 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                   />
                 </div>
                 <Button type="submit" variant="primary" className="h-10" disabled={busy || !email}>
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />} Create invite link
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Send invite
                 </Button>
               </form>
               {error && (
@@ -164,10 +240,24 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                 </div>
               )}
               {created && (
-                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-medium text-emerald-900">Invite link for {created.email}</p>
-                  <p className="mt-0.5 text-xs text-emerald-800">
-                    Copy it now and send it to them: for safety it is shown only once.
+                <div
+                  className={clsx(
+                    "mt-4 rounded-lg border p-4",
+                    created.sent ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50",
+                  )}
+                >
+                  <p className={clsx("flex items-center gap-1.5 text-sm font-medium", created.sent ? "text-emerald-900" : "text-amber-900")}>
+                    {created.sent ? <MailCheck className="size-4" /> : <Link2 className="size-4" />}
+                    {created.sent && created.mode === "console"
+                      ? `Invite for ${created.email} printed in the API terminal (development mode: not emailed)`
+                      : created.sent
+                        ? `Invite emailed to ${created.email}`
+                        : `The email to ${created.email} could not be sent`}
+                  </p>
+                  <p className={clsx("mt-0.5 text-xs", created.sent ? "text-emerald-800" : "text-amber-800")}>
+                    {created.sent
+                      ? "If it does not arrive (check spam), copy the link below and send it yourself. It is shown only once."
+                      : "Copy the link now and send it yourself: for safety it is shown only once."}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <code aria-label="Invite link" className="min-w-0 flex-1 truncate rounded-md bg-white px-2.5 py-1.5 font-mono text-xs text-zinc-800 ring-1 ring-emerald-200">
@@ -178,6 +268,8 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                 </div>
               )}
             </Card>
+
+            {notice && <Callout tone="success">{notice}</Callout>}
 
             <section>
               <SectionTitle aside={cap !== null && <span className="text-xs text-zinc-500">Each user can spend ${cap.toFixed(2)} a day</span>}>
@@ -198,7 +290,7 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
                     {(users ?? []).map((u) => (
-                      <tr key={u.id} className={clsx(u.disabled && "opacity-60")}>
+                      <tr key={u.id} className={clsx(u.disabled && "[&>td:not(:last-child)]:opacity-60")}>
                         <td className="px-4 py-2.5">
                           <div className="font-medium text-zinc-900">{u.name}</div>
                           <div className="text-xs text-zinc-500">{u.email}</div>
@@ -212,9 +304,33 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                         <td className="px-4 py-2.5 text-zinc-600">{when(u.last_login_at)}</td>
                         <td className="px-4 py-2.5 text-right">
                           {u.id !== me.id && (
-                            <Button size="sm" variant={u.disabled ? "secondary" : "ghost"} onClick={() => toggle(u)}>
-                              {u.disabled ? "Enable" : "Disable"}
-                            </Button>
+                            <span className="inline-flex items-center justify-end gap-1.5">
+                              {u.disabled ? (
+                                <Button size="sm" onClick={() => toggle(u)}>
+                                  <UserCheck className="size-3.5 text-emerald-600" />
+                                  Enable
+                                </Button>
+                              ) : (
+                                <ConfirmAction
+                                  label="Disable"
+                                  icon={<UserX className="size-3.5" />}
+                                  question="Block sign-in?"
+                                  confirm="Yes, disable"
+                                  onConfirm={() => toggle(u)}
+                                />
+                              )}
+                              {u.role !== "admin" && (
+                                <ConfirmAction
+                                  iconOnly
+                                  label="Delete"
+                                  hint="Delete this account and all its conversations"
+                                  icon={<Trash2 className="size-3.5" />}
+                                  question="Delete forever, with all their conversations?"
+                                  confirm="Yes, delete"
+                                  onConfirm={() => remove(u)}
+                                />
+                              )}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -249,9 +365,13 @@ export function AdminPage({ api = httpApi }: { api?: Api }) {
                         <td className="px-4 py-2.5 text-zinc-600">{when(i.expires_at)}</td>
                         <td className="px-4 py-2.5 text-right">
                           {i.status === "pending" && (
-                            <Button size="sm" variant="ghost" onClick={() => revoke(i)}>
-                              Revoke
-                            </Button>
+                            <ConfirmAction
+                              label="Revoke"
+                              icon={<Ban className="size-3.5" />}
+                              question="Cancel this link?"
+                              confirm="Yes, revoke"
+                              onConfirm={() => revoke(i)}
+                            />
                           )}
                         </td>
                       </tr>

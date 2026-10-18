@@ -38,6 +38,15 @@ class LoginThrottle:
             for key in (f"e:{email}", f"c:{client}"):
                 self._recent(key).append(now)
 
+    def client_blocked(self, client: str, limit: int = MAX_FAILURES_PER_CLIENT) -> bool:
+        """For counts that belong to a client only (wrong codes, emails asked for)."""
+        with self._lock:
+            return len(self._recent(f"c:{client}")) >= limit
+
+    def client_counted(self, client: str) -> None:
+        with self._lock:
+            self._recent(f"c:{client}").append(self._clock())
+
     def succeeded(self, email: str) -> None:
         with self._lock:
             self._fails.pop(f"e:{email}", None)

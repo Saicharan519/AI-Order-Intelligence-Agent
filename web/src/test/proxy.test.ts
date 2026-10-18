@@ -3,7 +3,7 @@
 // only from this app's own pages.
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { COOKIE, forward, sameOrigin, sessionToken, signIn, signOut, signUp } from "@/lib/server/proxy";
+import { authFlow, CHALLENGE, COOKIE, DEVICE, forward, sameOrigin, sessionToken, signIn, signOut, signUp } from "@/lib/server/proxy";
 import { allowed, parseEnv } from "@/lib/server/upstream";
 
 const APP = "http://localhost:3000";
@@ -40,8 +40,13 @@ describe("allow-list", () => {
       ["POST", "v1/sessions/abc_123/scope/clear"],
       ["GET", "v1/auth/me"],
       ["GET", `v1/auth/invites/${"a".repeat(43)}`],
+      ["POST", "v1/account/profile"],
+      ["POST", "v1/account/password"],
+      ["POST", "v1/account/email/confirm"],
+      ["POST", "v1/account/email/resend"],
       ["GET", "v1/admin/users"],
       ["POST", `v1/admin/users/${UUID}/disable`],
+      ["POST", `v1/admin/users/${UUID}/delete`],
       ["POST", "v1/admin/invites"],
       ["POST", `v1/admin/invites/${UUID}/revoke`],
     ]) {
@@ -54,8 +59,12 @@ describe("allow-list", () => {
       ["GET", "docs"],
       ["POST", "v1/auth/login"], // only through the sign-in route, which sets the cookie
       ["POST", "v1/auth/signup"],
-      ["POST", `v1/admin/users/${UUID}/delete`],
+      ["POST", `v1/admin/users/${UUID}/promote`],
       ["GET", "v1/auth/invites/short"],
+      ["GET", "v1/account/profile"],
+      ["POST", "v1/account/delete"],
+      ["POST", "v1/auth/login/verify"], // only through /api/auth/verify, which reads the challenge cookie
+      ["POST", "v1/auth/password/reset"],
     ]) {
       expect(allowed(m, p)).toBe(false);
     }
@@ -204,5 +213,80 @@ describe("sign in, sign up, sign out", () => {
   it("reads the session from the cookie header only", () => {
     expect(sessionToken(req("/x", { cookie: `a=1; ${COOKIE}=abc%3D` }))).toBe("abc=");
     expect(sessionToken(req("/x", { headers: { authorization: "Bearer xyz" } }))).toBeNull();
+  });
+});
+
+describe("emailed codes and password reset", () => {
+  const user = { id: "u1", email: "a@example.test", name: "A", role: "user" };
+  const CH = "test-challenge-token-not-real-0123456789";
+  const DEV = "test-device-token-not-real-0123456789";
+  const sentBody = (f: ReturnType<typeof okFetch>) => JSON.parse(String(f.mock.calls[0][1]?.body));
+  const cookies = (r: Response) => r.headers.getSetCookie();
+
+  it("keeps the challenge in an httpOnly cookie for the sign-in routes only", async () => {
+    const f = okFetch({ code_required: true, challenge: CH, email_hint: "a***@example.test" });
+    const r = await authFlow(req("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "a@example.test", password: "p" }) }), "login", f);
+    const text = await r.text();
+    expect(JSON.parse(text)).toEqual({ code_required: true, email_hint: "a***@example.test" });
+    expect(text).not.toContain(CH);
+    const [c] = cookies(r);
+    expect(c).toContain(`${CHALLENGE}=${CH}`);
+    expect(c).toContain("HttpOnly");
+    expect(c).toContain("Path=/api/auth;");
+    expect(cookies(r).some((x) => x.startsWith(`${COOKIE}=`))).toBe(false); // no session yet
+  });
+
+  it("sends the challenge from the cookie, never from the page, and then starts the session", async () => {
+    const f = okFetch({ token: TOKEN, device_token: DEV, user });
+    const body = JSON.stringify({ code: "123456", trust_device: true, challenge: "forged-by-a-script" });
+    const r = await authFlow(req("/api/auth/verify", { method: "POST", cookie: `${CHALLENGE}=${CH}`, body }), "verify", f);
+    expect(f.mock.calls[0][0]).toBe("http://127.0.0.1:8000/v1/auth/login/verify");
+    expect(sentBody(f)).toEqual({ code: "123456", trust_device: true, challenge: CH });
+    const text = await r.text();
+    expect(JSON.parse(text)).toEqual({ user });
+    expect(text).not.toContain(TOKEN);
+    expect(text).not.toContain(DEV);
+    const set = cookies(r);
+    expect(set.find((x) => x.startsWith(`${COOKIE}=`))).toContain(`${COOKIE}=${TOKEN}; Path=/;`);
+    expect(set.find((x) => x.startsWith(`${CHALLENGE}=`))).toMatch(/Max-Age=0/); // used up
+    const device = set.find((x) => x.startsWith(`${DEVICE}=`)) ?? "";
+    expect(device).toContain(`${DEVICE}=${DEV}; Path=/api/auth;`);
+    expect(device).toContain(`Max-Age=${30 * 24 * 60 * 60}`);
+  });
+
+  it("refuses a code step with no challenge cookie, without calling the API", async () => {
+    const f = okFetch();
+    const r = await authFlow(req("/api/auth/verify", { method: "POST", body: JSON.stringify({ code: "123456" }) }), "verify", f);
+    expect(r.status).toBe(400);
+    expect((await r.json()).error.code).toBe("code_expired");
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("sends the trusted-device cookie with the password", async () => {
+    const f = okFetch({ token: TOKEN, user });
+    await signIn(req("/api/auth/login", { method: "POST", cookie: `${DEVICE}=${DEV}`, body: JSON.stringify({ email: "a@example.test", password: "p", device: "forged" }) }), f);
+    expect(sentBody(f)).toEqual({ email: "a@example.test", password: "p", device: DEV });
+  });
+
+  it("keeps the challenge after a wrong code, and clears it after a reset", async () => {
+    let f = okFetch({ error: { code: "wrong_code", message: "wrong" } }, { status: 400 });
+    let r = await authFlow(req("/api/auth/verify", { method: "POST", cookie: `${CHALLENGE}=${CH}`, body: '{"code":"1"}' }), "verify", f);
+    expect(r.status).toBe(400);
+    expect(cookies(r)).toEqual([]);
+
+    f = okFetch({ ok: true });
+    r = await authFlow(req("/api/auth/reset", { method: "POST", cookie: `${CHALLENGE}=${CH}`, body: '{"code":"123456","new_password":"x"}' }), "reset", f);
+    expect(f.mock.calls[0][0]).toBe("http://127.0.0.1:8000/v1/auth/password/reset");
+    expect(cookies(r)).toHaveLength(1);
+    expect(cookies(r)[0]).toMatch(new RegExp(`^${CHALLENGE}=; .*Max-Age=0`));
+  });
+
+  it("knows only its own steps, refuses other websites and non-object bodies", async () => {
+    const f = okFetch();
+    expect((await authFlow(req("/api/auth/admin", { method: "POST", body: "{}" }), "admin", f)).status).toBe(404);
+    expect((await authFlow(req("/api/auth/forgot", { method: "POST", body: "{}", origin: "https://evil.example" }), "forgot", f)).status).toBe(403);
+    expect((await authFlow(req("/api/auth/forgot", { method: "POST", body: "[1]" }), "forgot", f)).status).toBe(400);
+    expect((await authFlow(req("/api/auth/toString", { method: "POST", body: "{}" }), "toString", f)).status).toBe(404);
+    expect(f).not.toHaveBeenCalled();
   });
 });

@@ -34,12 +34,16 @@ Database: `docker compose up -d db` (container `orderintel-db-1`, port 5432). Sc
 - `src/orderintel/safety/` is test-only; no product module may import it (a test enforces this).
 - Traces and logs pass through `orderintel/redact.py`.
 - The browser never calls FastAPI directly: `web/src/lib/server/` forwards an allow-list of endpoints with only the JSON body and the session from the httpOnly `oi_session` cookie (as `Authorization: Bearer`); the token is never returned to the browser, and every POST must pass the same-origin check (tests in `web/src/test/proxy.test.ts`).
-- Accounts (`src/orderintel/auth/`, schema `app`, written as `oi_trace`; `oi_agent` has no access): scrypt password hashes, tokens and invite codes stored only as SHA-256 hashes, invite-only sign-up. Every history, trace and spend query is scoped to the caller's user id (NULL for the `X-Access-Code` operator key); `tests/integration/test_accounts.py` proves one user cannot see another's conversations. Never create real accounts or set real passwords for the owner; test accounts use the domain `accounts.test` and are deleted.
+- Accounts (`src/orderintel/auth/`, schema `app`, written as `oi_trace`; `oi_agent` has no access): scrypt password hashes, tokens and invite codes stored only as SHA-256 hashes, invite-only sign-up. Every history, trace and spend query is scoped to the caller's user id (NULL for the `X-Access-Code` operator key); `tests/integration/test_accounts.py` proves one user cannot see another's conversations. Deleting a user goes through `trace.forget_user` (migration 009, owner rights): it deletes their question rows and erases the text of their model-call rows but keeps the cost rows, because `trace.requests` is also the spend ledger; `oi_trace` must never get DELETE on it. Never create real accounts or set real passwords for the owner; test accounts use the domain `accounts.test` and are deleted.
+- Emailed 6-digit codes (`auth/codes.py`, `auth/mail.py`): sign-in after the password (unless the device is trusted), password reset, email change. A code is stored only as `sha256(secret:code)` where the secret (challenge in the httpOnly `oi_challenge` cookie, or the session) is not in the database; codes work once, expire in 10 minutes and end after 5 wrong tries; "forgot password" answers the same for unknown emails. `MAIL_MODE=console` prints emails in the API terminal; tests use `MemoryMailer` and never send real email. SMTP credentials are the owner's (`.env`); never ask for them.
 
 ## Tests
 
 - `realdata` marks tests that check real Olist figures; they skip with a reason on the synthetic fixture (CI runs `scripts/build_mini_db.py --db orderintel_ci`).
 - Assertions about "nothing changed" compare before and after, never a hard-coded real count.
+- Simulate CI before pushing: `python -m scripts.build_mini_db --db orderintel_ci`, then run pytest with `POSTGRES_DB=orderintel_ci` and `DATA_DIR` pointing to an EMPTY folder (otherwise a loader test loads the local CSVs into the CI database midway and the results are meaningless). Expected: all pass, about 119 skipped.
+- Evaluation scripts write to the recorded result files (`eval/results/investigation_deepseek.json`, `safety_*`, `eval/reports/*_report.md`); `run_safety_eval.py --deterministic` rewrites the safety report with new timings. Keep new runs as dated copies and restore the recorded files with `git checkout -- <file>`.
+- Only one `next dev` can run per folder; the owner often runs their own API (8000) and web app (3000). Never stop their processes.
 
 ## Conventions
 

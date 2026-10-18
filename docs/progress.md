@@ -91,6 +91,43 @@ Owner testing found wrong or inconsistent answers and misleading charts (list in
 
 **API cost:** $0.
 
+### Same day — account settings, clearer admin actions, hand cursor (owner's feedback; no spend)
+
+- **Account settings page** (`/settings`, the gear icon next to your name): change your name freely; changing the email you sign in with needs your current password; changing the password needs the current one, signs out every other device and keeps this one signed in. Wrong current passwords count toward the same lock-out as sign-in (5 per email in 15 minutes). New endpoints `POST /v1/account/profile` and `POST /v1/account/password` (refused for the operator key, which has no account), added to the proxy allow-list. No email verification yet: there is no email service, so a typed email is trusted as the owner's own.
+- **Admin actions:** Disable and Revoke are red outlined buttons with icons and ask once inline ("Block sign-in? No / Yes, disable"); Enable is a normal button with a green check and is no longer faded with the rest of a disabled user's row.
+- **Hand cursor:** Tailwind 4 gives buttons the plain arrow cursor; one base rule in `globals.css` now shows the hand on every enabled button.
+- **Tests:** API 5 new (name without a password, email only with the right password and stored in lower case, an email taken by someone else or not an email is refused, a password change signs out other sessions only, wrong current passwords lock out, the operator key has no account). Web 5 new for the settings page, and the admin tests now confirm before acting (and "No" does nothing). Real data 700 passed; web 69 passed; lint, type-check and build clean.
+- **Checked in the browser** (built app on port 3002 against the mock API, $0): a wrong current password was refused, the right one saved the new email, the password field disappeared, and the sidebar showed the new email.
+
+### Same day — emailed 6-digit codes, forgot password, emailed invites (owner-approved; no spend)
+
+- **Sending email** (`src/orderintel/auth/mail.py`): `MAIL_MODE=console` (default) prints each email in the API's terminal and sends nothing; `smtp` sends it, for example from the owner's Gmail with a Google App Password (`SMTP_USER`, `SMTP_PASSWORD` in `.env`, set by the owner); `off` sends nothing. Standard library only (smtplib with STARTTLS). Errors name only the exception type, so the password or server messages never reach logs.
+- **Sign-in with a code:** a correct password no longer gives a session; the API emails a 6-digit code and returns a challenge, which the web server keeps in an httpOnly cookie (`oi_challenge`, path `/api/auth`, 15 minutes). The code plus the challenge gives the session. "Trust this device for 30 days" stores a second httpOnly cookie (`oi_device`) whose hash is in `app.trusted_devices`; it works only for the user who trusted it, and a password change or reset untrusts every device. `LOGIN_CODE_REQUIRED=false` turns codes off.
+- **Forgot password** (`/forgot`): email, then code and new password. The answer is the same whether or not the email has an account, and the email is sent after the answer, so neither the reply nor its timing reveals who has an account. A reset ends every session and trusted device. The terminal script still works as a backup.
+- **Email change:** the current password, then the code sent to the NEW address; the old email stays in use until then. The code is tied to the session that asked for it.
+- **Invites are emailed** with the link (`APP_URL` + `/signup?invite=...`); the link is still shown once to copy, and the admin page says whether the email went out, failed, or was only printed (console mode).
+- **Code safety:** migration `008_email_codes.sql`. Codes come from `secrets`, are stored only as `sha256(secret:code)` with a secret the database does not hold (so a copy of the table cannot be used to try the million codes offline), work once, expire in 10 minutes and end after 5 wrong tries; a new code after 60 seconds, at most 5 per code and 10 per hour per user; at most 10 emails per client in 15 minutes; 20 wrong codes per client in 15 minutes. Code emails carry no links.
+- **Bug fixed in passing:** invite-link lookups counted failures under one shared key, so 5 bad invite links from anywhere blocked every invite page for 15 minutes; failures now count per client only.
+- **Tests:** API 18 new (`test_email_codes.py`: no session from the password alone, single use, 5 wrong tries, codes tied to their challenge, expiry, resend wait, hashes only, mail failure, hourly limit, trusted devices per user and untrusted by a password change, forgot answers the same, reset ends sessions and keeps the code after a weak password, email change only after the new address's code and only from the asking session, invites emailed and still usable when mail fails); mail unit tests 7 (modes, console output, SMTP with TLS through a fake server, the password never in an error). Web: proxy 6 new (challenge and device cookies httpOnly and limited to `/api/auth`, never readable or settable by page scripts, session only after the code), forms 7 new or changed. Real data 725 passed; web 81 passed; lint, type-check, build and secret scan clean.
+- **Checked in the browser** (built app against the mock API, $0): password then code screen with the development-mode note; a wrong code refused; the right code with "trust this device" signed in; after signing out, the same browser signed in without a code; forgot password reset with a code; the settings page kept the old email until the new address's code was entered.
+- **Not done:** no real email was sent (console mode); sending from Gmail needs the owner's App Password in `.env`. In-memory send and failure counters reset when the API restarts.
+
+**API cost:** $0.
+
+### Same day — delete a user (owner's request; no spend)
+
+- **Admin page:** a red trash icon next to Disable, for normal users only (not yourself, not an admin), with an inline warning ("Delete forever, with all their conversations? No / Yes, delete"); a notice then says what was removed.
+- **What is deleted, in one transaction:** the account; its sessions, codes and trusted devices (cascade); invites sent to that email or used by that person; their questions and traces. **What stays:** the model-call rows that hold the cost, with their question, response and error text erased, because `trace.requests` is also the spend ledger: deleting them would lower the recorded spend and let the $1.90 and daily caps be exceeded. Migration `009_forget_user.sql` adds `trace.forget_user(uuid)`, owned by the owner and run with its rights, which does only those two things; `oi_trace` may call it but still cannot DELETE from `trace.requests` (a test checks this).
+- **Tests:** API 3 new (everything gone, no question text left anywhere, spend total unchanged; admins and yourself refused, users refused, unknown id 404; the API role cannot delete ledger rows). Web 1 new, proxy allow-list updated. Real data 728 passed; web 82 passed; lint, type-check and build clean.
+- **Checked in the browser** (built app, mock API, $0): the trash icon shows only for the normal user; the warning appears inline; after "Yes, delete" the user is gone and the notice explains it. Button text no longer wraps in narrow tables.
+
+**API cost:** $0.
+
+### Same day — old conversations moved to the owner's account (owner's request; no spend)
+
+- `scripts/claim_conversations.py --email ... [--apply]`: gives the API's unowned question rows (asked with the operator key before accounts existed) to one account; it shows the count first and changes nothing without `--apply`. Evaluation runs, tests and model-call rows are not touched. Run for the owner: 48 questions in 15 conversations moved; 0 unowned left.
+- Real emails are on: the owner set up Gmail sending with an App Password and tested a real invite.
+
 ## 2026-10-17 — M10: CI, variance, model comparison, README, fresh-clone test (owner-approved runs)
 
 **Completed**
@@ -621,7 +658,9 @@ Run at 11:00 UTC (off-peak), `deepseek-flash`, thinking disabled, temperature 0,
 **API cost incurred:** $0.00
 
 ## Next steps
-1. Owner approves the M4 commit (and push).
-2. M0b: owner adds the DeepSeek key to `.env`; provider facts checked (Q-02); about 10 calibration calls (< $0.01) after approval.
-3. M5: LLM client with budget guard and cache; SQL-generation prompts A–C; cost estimate and approval before each paid run.
-3. M0b (any time before M5): owner creates a DeepSeek key in `.env`; calibration of about 10 calls (< $0.01) after approval.
+
+As of 2026-10-18; M0 to M10 are done, plus the web app and accounts.
+1. Owner pushes the local commits to GitHub and checks that CI passes.
+2. Owner updates the GitHub Actions versions that still run on Node 20 (deprecation warnings only).
+3. M11: a temporary public demo on AWS (free plan, Docker Compose, HTTPS, public-demo protections, kill switch, smoke test with approval), then the demo video and a teardown checklist with key rotation.
+4. Optional account features, to discuss: copy an invite link again, per-user budgets set by the admin, "sign out everywhere", a log of admin actions.

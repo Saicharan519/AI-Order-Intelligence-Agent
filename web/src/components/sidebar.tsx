@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { History, Loader2, LogOut, MessageSquare, Plus, Shield, Wallet } from "lucide-react";
+import { History, Loader2, LogOut, MessageSquare, Plus, Settings, Shield, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { Budget, Health, SessionSummary, UserInfo } from "@/lib/types";
 import { Logo } from "./ui";
@@ -185,6 +185,16 @@ export function Sidebar({
               <span className="block truncate text-[13px] font-medium text-zinc-100">{user.name}</span>
               <span className="block truncate text-[11px] text-zinc-500">{user.email}</span>
             </span>
+            {user.role !== "operator" && (
+              <Link
+                href="/settings"
+                title="Account settings"
+                aria-label="Account settings"
+                className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                <Settings className="size-4" />
+              </Link>
+            )}
             {user.role === "admin" && (
               <Link
                 href="/admin"

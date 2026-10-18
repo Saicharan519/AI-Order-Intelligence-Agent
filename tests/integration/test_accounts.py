@@ -12,9 +12,10 @@ from pydantic import SecretStr
 from orderintel.agent.session import SessionStore
 from orderintel.api.app import create_app
 from orderintel.auth.crypto import token_hash
+from orderintel.auth.mail import MemoryMailer
 from orderintel.auth.store import AccountStore
 from orderintel.config import get_settings
-from orderintel.db.connect import connect_agent, connect_owner
+from orderintel.db.connect import connect_agent, connect_owner, connect_trace
 from orderintel.llm.budget import PostgresLedger
 from orderintel.llm.client import LLMClient
 from orderintel.trace.recorder import TraceRecorder
@@ -35,11 +36,16 @@ PW = "a good passphrase 1"
 
 
 def settings(**update):
-    base = {"access_code": SecretStr(CODE), "rate_limit_per_ip_per_min": 50}
+    # Sign-in codes are tested in test_email_codes.py; here a password alone signs in.
+    base = {
+        "access_code": SecretStr(CODE),
+        "rate_limit_per_ip_per_min": 50,
+        "login_code_required": False,
+    }
     return get_settings().model_copy(update={**base, **update})
 
 
-def client(**update) -> TestClient:
+def client(mailer: MemoryMailer | None = None, **update) -> TestClient:
     s = settings(**update)
     fake = RoleFake(
         ROUTE_ANSWER,
@@ -54,6 +60,7 @@ def client(**update) -> TestClient:
         store=SessionStore(),
         trace_config=TAG,
         accounts=AccountStore(s),
+        mailer=mailer or MemoryMailer(),
     )
     return TestClient(app, raise_server_exceptions=False)
 
@@ -341,3 +348,188 @@ def test_an_expired_or_made_up_session_is_refused():
     c = client()
     r = c.get("/v1/sessions", headers=bearer("made-up-token"))
     assert r.status_code == 401 and r.json()["error"]["message"] == "Please sign in again."
+
+
+# ---------- your own account ----------
+
+
+def test_change_name_freely_and_email_only_with_the_current_password(admin):
+    c = client()
+    token = sign_in(c, admin)
+    r = c.post("/v1/account/profile", json={"name": "Sai C", "email": admin}, headers=bearer(token))
+    assert r.status_code == 200 and r.json()["name"] == "Sai C"
+
+    new = unique("renamed")
+    r = c.post("/v1/account/profile", json={"name": "Sai C", "email": new}, headers=bearer(token))
+    assert r.status_code == 400 and r.json()["error"]["code"] == "wrong_password"
+    r = c.post(
+        "/v1/account/profile",
+        json={"name": "Sai C", "email": new, "current_password": "not my password"},
+        headers=bearer(token),
+    )
+    assert r.status_code == 400 and r.json()["error"]["code"] == "wrong_password"
+
+    r = c.post(
+        "/v1/account/profile",
+        json={"name": "Sai C", "email": new.upper(), "current_password": PW},
+        headers=bearer(token),
+    )
+    # Not changed yet: first the code sent to the new address (test_email_codes.py).
+    assert r.status_code == 200 and r.json()["pending_email"] == new  # stored in lower case
+    assert c.get("/v1/auth/me", headers=bearer(token)).json()["email"] == admin
+
+
+def test_an_email_that_belongs_to_someone_else_is_refused(admin):
+    c = client()
+    token = sign_in(c, admin)
+    other, _ = invite_and_join(c, token)
+    r = c.post(
+        "/v1/account/profile",
+        json={"name": "Admin", "email": other, "current_password": PW},
+        headers=bearer(token),
+    )
+    assert r.status_code == 409 and r.json()["error"]["code"] == "email_taken"
+    r = c.post(
+        "/v1/account/profile",
+        json={"name": "Admin", "email": "not-an-email", "current_password": PW},
+        headers=bearer(token),
+    )
+    assert r.status_code == 400 and r.json()["error"]["code"] == "invalid_email"
+
+
+def test_changing_the_password_signs_out_other_devices_but_not_this_one(admin):
+    c = client()
+    here, laptop = sign_in(c, admin), sign_in(c, admin)
+    new_pw = "another good passphrase 2"
+    r = c.post(
+        "/v1/account/password",
+        json={"current_password": "wrong one", "new_password": new_pw},
+        headers=bearer(here),
+    )
+    assert r.status_code == 400 and r.json()["error"]["code"] == "wrong_password"
+    r = c.post(
+        "/v1/account/password",
+        json={"current_password": PW, "new_password": "short"},
+        headers=bearer(here),
+    )
+    assert r.status_code == 400 and r.json()["error"]["code"] == "weak_password"
+
+    r = c.post(
+        "/v1/account/password",
+        json={"current_password": PW, "new_password": new_pw},
+        headers=bearer(here),
+    )
+    assert r.status_code == 200
+    assert c.get("/v1/auth/me", headers=bearer(here)).status_code == 200
+    assert c.get("/v1/auth/me", headers=bearer(laptop)).status_code == 401
+    assert c.post("/v1/auth/login", json={"email": admin, "password": PW}).status_code == 401
+    sign_in(c, admin, new_pw)
+
+
+def test_wrong_current_passwords_are_locked_out_like_sign_in(admin):
+    c = client()
+    token = sign_in(c, admin)
+    body = {"current_password": "guess", "new_password": "another good passphrase 2"}
+    codes = [
+        c.post("/v1/account/password", json=body, headers=bearer(token)).status_code
+        for _ in range(6)
+    ]
+    assert codes[:5] == [400] * 5 and codes[5] == 429
+
+
+def test_the_operator_key_has_no_account_to_change():
+    c = client()
+    r = c.post(
+        "/v1/account/profile",
+        json={"name": "x", "email": unique("op")},
+        headers={"X-Access-Code": CODE},
+    )
+    assert r.status_code == 403
+    assert c.post("/v1/account/profile", json={"name": "x", "email": "a@b.co"}).status_code == 401
+
+
+# ---------- deleting an account ----------
+
+
+def test_deleting_a_user_removes_everything_but_keeps_the_spend_counted(admin):
+    c = client()
+    token = sign_in(c, admin)
+    email, dan = invite_and_join(c, token, "Dan")
+    asked = c.post(
+        "/v1/ask",
+        json={"question": "How many orders were canceled by Dan?", "session_id": "acct-dan-1"},
+        headers=bearer(dan),
+    ).json()
+    rid = asked["request_id"]
+    with connect_owner() as conn:  # give one model call a tiny cost, to see it survive
+        conn.execute(
+            "UPDATE trace.requests SET cost_usd = 0.000001 WHERE id = "
+            "(SELECT id FROM trace.requests WHERE parent_id = %s LIMIT 1)",
+            (rid,),
+        )
+        calls = conn.execute(
+            "SELECT count(*), sum(cost_usd) FROM trace.requests WHERE parent_id = %s", (rid,)
+        ).fetchone()
+        spend_before = conn.execute("SELECT total_usd FROM trace.spend").fetchone()[0]
+    assert calls[0] >= 1
+
+    user_id = next(
+        u["id"]
+        for u in c.get("/v1/admin/users", headers=bearer(token)).json()["users"]
+        if u["email"] == email
+    )
+    r = c.post(f"/v1/admin/users/{user_id}/delete", headers=bearer(token))
+    assert r.status_code == 200 and r.json() == {
+        "id": user_id,
+        "deleted": True,
+        "questions_removed": 1,
+    }
+
+    assert c.get("/v1/sessions", headers=bearer(dan)).status_code == 401  # signed out
+    assert c.post("/v1/auth/login", json={"email": email, "password": PW}).status_code == 401
+    emails = [u["email"] for u in c.get("/v1/admin/users", headers=bearer(token)).json()["users"]]
+    invites = [
+        i["email"] for i in c.get("/v1/admin/invites", headers=bearer(token)).json()["invites"]
+    ]
+    assert email not in emails and email not in invites
+    with connect_owner() as conn:
+        assert conn.execute("SELECT 1 FROM trace.requests WHERE id = %s", (rid,)).fetchone() is None
+        left = conn.execute(
+            "SELECT count(*), sum(cost_usd), count(question), count(response) "
+            "FROM trace.requests WHERE kind = 'llm_call' AND config_name LIKE %s "
+            "AND question IS NULL AND created_at >= now() - interval '10 minutes' "
+            "AND cost_usd = 0.000001",
+            (TAG + "%",),
+        ).fetchone()
+        spend_after = conn.execute("SELECT total_usd FROM trace.spend").fetchone()[0]
+        text = conn.execute(
+            "SELECT count(*) FROM trace.requests WHERE question LIKE '%%canceled by Dan%%'"
+        ).fetchone()[0]
+    assert left[0] == 1 and left[2] == 0 and left[3] == 0  # the cost row stays, without text
+    assert spend_after == spend_before  # the budget still counts the money spent
+    assert text == 0  # the question text is gone everywhere
+
+
+def test_admins_and_yourself_cannot_be_deleted_and_users_cannot_delete(admin):
+    c = client()
+    token = sign_in(c, admin)
+    _, friend = invite_and_join(c, token)
+    users = c.get("/v1/admin/users", headers=bearer(token)).json()["users"]
+    me = next(u for u in users if u["email"] == admin)
+    other_admin = unique("admin2")
+    AccountStore().create_user(other_admin, "Admin Two", PW, role="admin")
+    users = c.get("/v1/admin/users", headers=bearer(token)).json()["users"]
+    second = next(u for u in users if u["email"] == other_admin)
+
+    assert c.post(f"/v1/admin/users/{me['id']}/delete", headers=bearer(token)).status_code == 403
+    assert (
+        c.post(f"/v1/admin/users/{second['id']}/delete", headers=bearer(token)).status_code == 403
+    )
+    assert c.post(f"/v1/admin/users/{me['id']}/delete", headers=bearer(friend)).status_code == 403
+    missing = "00000000-0000-4000-8000-00000000dead"
+    assert c.post(f"/v1/admin/users/{missing}/delete", headers=bearer(token)).status_code == 404
+
+
+def test_the_api_role_still_cannot_delete_spend_rows_itself():
+    with connect_trace() as conn, pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("DELETE FROM trace.requests WHERE false")

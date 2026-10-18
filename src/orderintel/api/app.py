@@ -1,8 +1,11 @@
 """HTTP API (T-9.1; technical design 9 and 10.4).
 
 Accounts (invite-only): POST /v1/auth/login, /v1/auth/logout, /v1/auth/signup,
-GET /v1/auth/me, GET /v1/auth/invites/{code}; admin: GET /v1/admin/users,
-POST /v1/admin/users/{id}/disable|enable, GET|POST /v1/admin/invites,
+GET /v1/auth/me, GET /v1/auth/invites/{code}, POST /v1/auth/login/verify, /login/resend,
+/v1/auth/password/forgot, /password/resend, /password/reset (emailed 6-digit codes);
+your account: POST /v1/account/profile, /v1/account/email/confirm, /email/resend,
+POST /v1/account/password; admin: GET /v1/admin/users,
+POST /v1/admin/users/{id}/disable|enable|delete, GET|POST /v1/admin/invites,
 POST /v1/admin/invites/{id}/revoke.
 Questions and history: POST /v1/ask, GET /v1/requests/{id}, GET /v1/sessions,
 GET /v1/sessions/{id}, POST /v1/sessions/{id}/scope/clear, GET /v1/catalog, GET /v1/budget,
@@ -30,7 +33,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -38,7 +41,18 @@ from pydantic import BaseModel, Field
 from orderintel.agent.ask import PreviousTurn, ask, build_graph
 from orderintel.agent.session import SessionStore
 from orderintel.api.schemas import AskResponse
-from orderintel.auth.crypto import normalise_email
+from orderintel.auth.codes import CodeStore
+from orderintel.auth.crypto import new_token, normalise_email, password_problem
+from orderintel.auth.mail import (
+    Mail,
+    Mailer,
+    MailError,
+    email_change_mail,
+    invite_mail,
+    login_code_mail,
+    mailer_for,
+    reset_code_mail,
+)
 from orderintel.auth.store import AccountError, AccountStore, User
 from orderintel.auth.throttle import LoginThrottle
 from orderintel.catalog import CatalogCache
@@ -135,6 +149,31 @@ class Identity:
 class LoginRequest(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=200)
+    device: str = Field(default="", max_length=100)  # a trusted-device token, if any
+
+
+class CodeRequest(BaseModel):
+    challenge: str = Field(pattern=INVITE_PATTERN)
+    code: str = Field(min_length=1, max_length=12)
+    trust_device: bool = False
+
+
+class ChallengeRequest(BaseModel):
+    challenge: str = Field(pattern=INVITE_PATTERN)
+
+
+class ForgotRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class ResetRequest(BaseModel):
+    challenge: str = Field(pattern=INVITE_PATTERN)
+    code: str = Field(min_length=1, max_length=12)
+    new_password: str = Field(min_length=1, max_length=200)
+
+
+class EmailCodeRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=12)
 
 
 class SignupRequest(BaseModel):
@@ -145,9 +184,33 @@ class SignupRequest(BaseModel):
 
 class InviteRequest(BaseModel):
     email: str = Field(min_length=3, max_length=254)
+    send: bool = True  # email the link to that address
 
 
-ACCOUNT_ERROR_STATUS = {"email_taken": 409, "not_found": 404, "not_allowed": 403}
+class ProfileRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=254)
+    current_password: str = Field(default="", max_length=200)  # needed to change the email
+
+
+class PasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=1, max_length=200)
+
+
+ACCOUNT_ERROR_STATUS = {
+    "email_taken": 409,
+    "not_found": 404,
+    "not_allowed": 403,
+    "too_many_codes": 429,
+    "resend_wait": 429,
+}
+
+
+def mask_email(email: str) -> str:
+    """k.saicharan@gmail.com -> k***@gmail.com: enough to recognise, not to read."""
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}***@{domain}"
 
 
 def create_app(
@@ -158,15 +221,22 @@ def create_app(
     clock: Callable[[], float] = time.monotonic,
     trace_config: str = "api",
     accounts: AccountStore | None = None,
+    mailer: Mailer | None = None,
 ) -> FastAPI:
     s = settings or get_settings()
     store = store or SessionStore()
     recorder = recorder or TraceRecorder(s)
     accounts = accounts or AccountStore(s)
+    mailer = mailer or mailer_for(s)
+    codes = CodeStore(s)
     ledger = PostgresLedger(s)
     state: dict = {"client": client, "graph": None}
     limiter = RateLimiter(s.rate_limit_per_ip_per_min, s.rate_limit_global_per_min, clock)
     throttle = LoginThrottle(clock)
+    # Per client: wrong codes and invite lookups (failures), and emails asked for (sends).
+    # Keyed by client only, so one client's mistakes never block anyone else.
+    code_throttle = LoginThrottle(clock)
+    send_throttle = LoginThrottle(clock)
     catalog = CatalogCache(s)
     app = FastAPI(title="Order Intelligence Agent", version="0.2.0", docs_url=None, redoc_url=None)
 
@@ -249,10 +319,48 @@ def create_app(
         return {"status": "ok", "database": db, "llm_enabled": s.llm_enabled}
 
     # ---------------- accounts ----------------
+    def session_token(request: Request) -> str:
+        auth = request.headers.get("authorization") or ""
+        return auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+
+    def send(mail: Mail) -> None:
+        """Send now; a failure is an error the user sees (the code or link did not go out)."""
+        try:
+            mailer.send(mail)
+        except MailError as e:
+            _log("mail_failed", mode=mailer.mode, error=str(e))
+            raise ApiError(
+                502, "mail_failed", "The email could not be sent. Please try again later."
+            ) from None
+
+    def send_quietly(mail: Mail) -> None:
+        """For password reset: sent after the answer, so the answer and its timing are the
+        same whether or not the email has an account."""
+        try:
+            mailer.send(mail)
+        except MailError as e:
+            _log("mail_failed", mode=mailer.mode, error=str(e))
+
+    def limit_sends(request: Request) -> None:
+        ip = client_ip(request)
+        if send_throttle.client_blocked(ip, 10):
+            raise ApiError(429, "too_many_codes", "Too many emails were asked for. Please wait.")
+        send_throttle.client_counted(ip)
+
+    def check_code_throttle(request: Request) -> str:
+        ip = client_ip(request)
+        if code_throttle.client_blocked(ip):
+            raise ApiError(429, "too_many_attempts", "Too many wrong codes. Please wait.")
+        return ip
+
+    def console_hint() -> dict:
+        return {"mail_mode": "console"} if mailer.mode == "console" else {}
+
     @app.post("/v1/auth/login")
     def login(body: LoginRequest, request: Request):
-        """Email and password -> a session token. The same answer for an unknown email and a
-        wrong password; repeated failures are refused for a while."""
+        """Email and password. Then either a session token (codes off, or a trusted device)
+        or an emailed 6-digit code and a challenge for /v1/auth/login/verify. The same
+        answer for an unknown email and a wrong password; repeated failures are refused."""
         email = normalise_email(body.email) or body.email.strip().lower()
         ip = client_ip(request)
         if throttle.blocked(email, ip):
@@ -267,14 +375,102 @@ def create_app(
             _log("login_failed")
             raise ApiError(401, "invalid_credentials", "Email or password is wrong.")
         throttle.succeeded(email)
-        _log("login", user_id=user.id)
-        return {"token": accounts.create_session(user), "user": user.public()}
+        if not s.login_code_required or codes.is_trusted(user.id, body.device):
+            _log("login", user_id=user.id)
+            return {"token": accounts.create_session(user), "user": user.public()}
+        limit_sends(request)
+        challenge = new_token()
+        code = codes.start(user.id, "login", challenge)
+        send(login_code_mail(user.email, user.name, code))
+        _log("login_code_sent", user_id=user.id)
+        return {
+            "code_required": True,
+            "challenge": challenge,
+            "email_hint": mask_email(user.email),
+            **console_hint(),
+        }
+
+    @app.post("/v1/auth/login/verify")
+    def login_verify(body: CodeRequest, request: Request):
+        """The emailed code -> a session token (and a trusted-device token if asked)."""
+        ip = check_code_throttle(request)
+        try:
+            found = codes.verify(body.challenge, "login", body.code)
+        except AccountError:
+            code_throttle.client_counted(ip)
+            raise
+        user = accounts.get_user(found.user_id)
+        if user is None or user.disabled:
+            raise ApiError(401, "invalid_credentials", "Email or password is wrong.")
+        out = {"token": accounts.create_session(user), "user": user.public()}
+        if body.trust_device:
+            out["device_token"] = codes.trust_device(user.id)
+        _log("login", user_id=user.id, trusted_device=body.trust_device)
+        return out
+
+    @app.post("/v1/auth/login/resend")
+    def login_resend(body: ChallengeRequest, request: Request):
+        limit_sends(request)
+        user_id, code, _ = codes.resend(body.challenge, "login")
+        user = accounts.get_user(user_id)
+        if user is None or user.disabled:
+            raise ApiError(400, "code_expired", "This code has expired. Please start again.")
+        send(login_code_mail(user.email, user.name, code))
+        return {"ok": True}
+
+    @app.post("/v1/auth/password/forgot")
+    def password_forgot(body: ForgotRequest, request: Request, tasks: BackgroundTasks):
+        """Always the same answer (a challenge), so it cannot reveal who has an account.
+        If the email has an active account, a reset code is emailed after the answer."""
+        limit_sends(request)
+        challenge = new_token()
+        user = accounts.user_by_email(body.email)
+        if user is not None and not user.disabled:
+            try:
+                code = codes.start(user.id, "reset", challenge)
+                tasks.add_task(send_quietly, reset_code_mail(user.email, user.name, code))
+                _log("reset_code_sent", user_id=user.id)
+            except AccountError:  # too many codes this hour: same answer, no email
+                _log("reset_code_refused", user_id=user.id)
+        return {"challenge": challenge, **console_hint()}
+
+    @app.post("/v1/auth/password/resend")
+    def password_resend(body: ChallengeRequest, request: Request, tasks: BackgroundTasks):
+        """Same answer whatever happens, for the same reason as /forgot."""
+        limit_sends(request)
+        try:
+            user_id, code, _ = codes.resend(body.challenge, "reset")
+            user = accounts.get_user(user_id)
+            if user is not None and not user.disabled:
+                tasks.add_task(send_quietly, reset_code_mail(user.email, user.name, code))
+        except AccountError:
+            pass
+        return {"ok": True}
+
+    @app.post("/v1/auth/password/reset")
+    def password_reset(body: ResetRequest, request: Request):
+        """The emailed code and a new password. Every session and trusted device ends."""
+        if problem := password_problem(body.new_password):
+            raise AccountError("weak_password", problem)
+        ip = check_code_throttle(request)
+        try:
+            found = codes.verify(body.challenge, "reset", body.code)
+        except AccountError:
+            code_throttle.client_counted(ip)
+            raise
+        user = accounts.get_user(found.user_id)
+        if user is None or user.disabled:
+            raise ApiError(400, "wrong_code", "That code is wrong or has expired.")
+        accounts.set_password(user.email, body.new_password)
+        codes.forget_devices(user.id)
+        throttle.succeeded(user.email)
+        _log("password_reset", user_id=user.id)
+        return {"ok": True}
 
     @app.post("/v1/auth/logout")
     def logout(request: Request):
-        auth = request.headers.get("authorization") or ""
-        if auth.lower().startswith("bearer "):
-            accounts.end_session(auth[7:].strip())
+        if token := session_token(request):
+            accounts.end_session(token)
         return {"ok": True}
 
     @app.get("/v1/auth/me")
@@ -289,12 +485,10 @@ def create_app(
         """For the sign-up page: which email an invite is for, if it is still valid."""
         if not re.fullmatch(INVITE_PATTERN, code):
             raise ApiError(404, "invalid_invite", "This invite link is not valid.")
-        ip = client_ip(request)
-        if throttle.blocked("", ip):
-            raise ApiError(429, "too_many_attempts", "Too many attempts. Please wait.")
+        ip = check_code_throttle(request)
         found = accounts.invite_for_code(code)
         if found is None:
-            throttle.failed("", ip)
+            code_throttle.client_counted(ip)
             raise ApiError(
                 404, "invalid_invite", "This invite link is not valid: it may be used or expired."
             )
@@ -306,6 +500,76 @@ def create_app(
         _log("signup", user_id=user.id)
         return {"token": accounts.create_session(user), "user": user.public()}
 
+    # ---------------- your account ----------------
+    def signed_in(request: Request) -> User:
+        who = identify(request)
+        if who.user is None:
+            raise ApiError(403, "forbidden", "Only a signed-in user has an account to change.")
+        return who.user
+
+    def confirm_password(user: User, password: str, request: Request) -> None:
+        """The current password again, with the same lockout as sign-in for wrong guesses."""
+        ip = client_ip(request)
+        if throttle.blocked(user.email, ip):
+            raise ApiError(
+                429, "too_many_attempts", "Too many wrong passwords. Please wait 15 minutes."
+            )
+        if not accounts.check_password(user, password):
+            throttle.failed(user.email, ip)
+            raise ApiError(400, "wrong_password", "Your current password is wrong.")
+        throttle.succeeded(user.email)
+
+    @app.post("/v1/account/profile")
+    def account_profile(body: ProfileRequest, request: Request):
+        """Change your name at once. A new email needs your current password and is used
+        only after you enter the code sent to it (/v1/account/email/confirm)."""
+        user = signed_in(request)
+        new_email = normalise_email(body.email)
+        if new_email is None:
+            raise AccountError("invalid_email", "Enter a valid email address.")
+        updated = accounts.update_profile(user, body.name, user.email)
+        if new_email == user.email:
+            _log("profile_updated", user_id=user.id)
+            return updated.public()
+        confirm_password(user, body.current_password, request)
+        if accounts.user_by_email(new_email) is not None:
+            raise AccountError("email_taken", "An account with this email already exists.")
+        limit_sends(request)
+        code = codes.start(user.id, "email_change", session_token(request), new_email=new_email)
+        send(email_change_mail(new_email, updated.name, code))
+        _log("email_change_code_sent", user_id=user.id)
+        return {**updated.public(), "pending_email": new_email, **console_hint()}
+
+    @app.post("/v1/account/email/confirm")
+    def account_email_confirm(body: EmailCodeRequest, request: Request):
+        user = signed_in(request)
+        found = codes.verify(session_token(request), "email_change", body.code)
+        if found.user_id != user.id or not found.new_email:
+            raise ApiError(400, "wrong_code", "That code is wrong or has expired.")
+        updated = accounts.update_profile(user, user.name, found.new_email)
+        _log("email_changed", user_id=user.id)
+        return updated.public()
+
+    @app.post("/v1/account/email/resend")
+    def account_email_resend(request: Request):
+        user = signed_in(request)
+        limit_sends(request)
+        _, code, new_email = codes.resend(session_token(request), "email_change")
+        if new_email:
+            send(email_change_mail(new_email, user.name, code))
+        return {"ok": True}
+
+    @app.post("/v1/account/password")
+    def account_password(body: PasswordRequest, request: Request):
+        """Change your password; your other devices are signed out (and no device stays
+        trusted), this one stays in."""
+        user = signed_in(request)
+        confirm_password(user, body.current_password, request)
+        accounts.change_password(user, body.new_password, keep_token=session_token(request))
+        codes.forget_devices(user.id)
+        _log("password_changed", user_id=user.id)
+        return {"ok": True}
+
     # ---------------- admin ----------------
     @app.get("/v1/admin/users")
     def admin_users(request: Request):
@@ -315,8 +579,12 @@ def create_app(
     @app.post("/v1/admin/users/{user_id}/{action}")
     def admin_user_action(user_id: str, action: str, request: Request):
         admin = require_admin(identify(request))
-        if action not in ("disable", "enable") or not re.fullmatch(UUID_PATTERN, user_id):
+        if action not in ("disable", "enable", "delete") or not re.fullmatch(UUID_PATTERN, user_id):
             raise ApiError(404, "not_found", "No such action.")
+        if action == "delete":
+            removed = accounts.delete_user(user_id, admin)
+            _log("user_deleted", user_id=user_id, by=admin.id, questions=removed)
+            return {"id": user_id, "deleted": True, "questions_removed": removed}
         user = accounts.set_disabled(user_id, action == "disable", admin)
         _log("user_" + action, user_id=user.id, by=admin.id)
         return {"id": user.id, "disabled": user.disabled}
@@ -328,11 +596,20 @@ def create_app(
 
     @app.post("/v1/admin/invites")
     def admin_create_invite(body: InviteRequest, request: Request):
-        """A one-time invite for an email. The code is in this response only."""
+        """A one-time invite for an email, emailed to that address when send is true. The
+        code is in this response only (the link is also shown as a backup to copy)."""
         admin = require_admin(identify(request))
         code, invite = accounts.create_invite(body.email, admin)
         _log("invite_created", invite_id=invite["id"], by=admin.id)
-        return {"code": code, "invite": invite}
+        mail = {"sent": False, "mode": mailer.mode}
+        if body.send:
+            link = f"{s.app_url.rstrip('/')}/signup?invite={code}"
+            try:
+                mailer.send(invite_mail(invite["email"], admin.name, link))
+                mail["sent"] = True
+            except MailError as e:
+                _log("mail_failed", mode=mailer.mode, error=str(e))
+        return {"code": code, "invite": invite, "mail": mail}
 
     @app.post("/v1/admin/invites/{invite_id}/revoke")
     def admin_revoke_invite(invite_id: str, request: Request):

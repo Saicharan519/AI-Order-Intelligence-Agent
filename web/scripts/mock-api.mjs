@@ -5,7 +5,9 @@
 //   API_URL=http://127.0.0.1:8100 npm run dev
 //
 // Sign in to the mock as admin@mock.test with the password "mock passphrase 1" (made-up
-// test values, not a real account). Invite links work too: any invite code is accepted.
+// test values, not a real account). Sign-in then asks for an emailed code, like the real API
+// in console mode: the mock's code is always 123456 (also printed here). Invite links work
+// too: any invite code is accepted.
 // Answers come from src/test/fixtures/*.json, which are real responses stored in the trace
 // database; the question picks one by keyword.
 import { readFileSync, readdirSync } from "node:fs";
@@ -26,6 +28,9 @@ const sessions = new Map();
 const MOCK_PASSWORD = "mock passphrase 1";
 const users = [{ id: "00000000-0000-4000-8000-000000000001", email: "admin@mock.test", name: "Mock Admin", role: "admin", disabled: false }];
 const tokens = new Map(); // token -> user id
+const MOCK_CODE = "123456"; // the emailed code, in the mock only
+const challenges = new Map(); // challenge -> user id (sign-in) 
+const devices = new Map(); // trusted-device token -> user id
 const invites = [];
 
 function readJson(req) {
@@ -76,13 +81,41 @@ createServer((req, res) => {
   const url = new URL(req.url, "http://x");
   if (url.pathname === "/v1/health") return send(res, 200, { status: "ok", database: "ok", llm_enabled: true });
   if (url.pathname === "/v1/auth/login" && req.method === "POST") {
-    readJson(req).then(({ email, password }) => {
+    readJson(req).then(({ email, password, device }) => {
       const u = users.find((x) => x.email === String(email).toLowerCase() && !x.disabled);
       if (!u || password !== MOCK_PASSWORD) {
         return send(res, 401, { error: { code: "invalid_credentials", message: "Email or password is wrong." } });
       }
-      send(res, 200, startSession(u));
+      if (devices.get(device) === u.id) return send(res, 200, startSession(u));
+      const challenge = crypto.randomUUID().replace(/-/g, "");
+      challenges.set(challenge, u.id);
+      console.log(`[mock mail] sign-in code for ${u.email}: ${MOCK_CODE}`);
+      send(res, 200, { code_required: true, challenge, email_hint: `${u.email[0]}***@${u.email.split("@")[1]}`, mail_mode: "console" });
     });
+    return;
+  }
+  const wrongCode = { error: { code: "wrong_code", message: "That code is wrong or has expired." } };
+  if (url.pathname === "/v1/auth/login/verify" && req.method === "POST") {
+    readJson(req).then(({ challenge, code, trust_device }) => {
+      const u = users.find((x) => x.id === challenges.get(challenge));
+      if (!u || code !== MOCK_CODE) return send(res, 400, wrongCode);
+      challenges.delete(challenge);
+      const out = startSession(u);
+      if (trust_device) {
+        out.device_token = crypto.randomUUID().replace(/-/g, "");
+        devices.set(out.device_token, u.id);
+      }
+      send(res, 200, out);
+    });
+    return;
+  }
+  if (url.pathname === "/v1/auth/login/resend" || url.pathname === "/v1/auth/password/resend") return send(res, 200, { ok: true });
+  if (url.pathname === "/v1/auth/password/forgot" && req.method === "POST") {
+    return send(res, 200, { challenge: crypto.randomUUID().replace(/-/g, ""), mail_mode: "console" });
+  }
+  if (url.pathname === "/v1/auth/password/reset" && req.method === "POST") {
+    // The mock keeps its one made-up password; it only checks the code.
+    readJson(req).then(({ code }) => (code === MOCK_CODE ? send(res, 200, { ok: true }) : send(res, 400, wrongCode)));
     return;
   }
   if (url.pathname === "/v1/auth/logout") return send(res, 200, { ok: true });
@@ -101,6 +134,42 @@ createServer((req, res) => {
     return send(res, 401, { error: { code: "unauthorized", message: "Please sign in." } });
   }
   if (url.pathname === "/v1/auth/me") return send(res, 200, { id: me.id, email: me.email, name: me.name, role: me.role });
+  if (url.pathname === "/v1/account/profile" && req.method === "POST") {
+    readJson(req).then(({ name, email, current_password }) => {
+      const e = String(email).trim().toLowerCase();
+      if (e !== me.email && current_password !== MOCK_PASSWORD) {
+        return send(res, 400, { error: { code: "wrong_password", message: "Your current password is wrong." } });
+      }
+      if (users.some((u) => u.email === e && u.id !== me.id)) {
+        return send(res, 409, { error: { code: "email_taken", message: "An account with this email already exists." } });
+      }
+      me.name = String(name).trim();
+      if (e === me.email) return send(res, 200, { id: me.id, email: me.email, name: me.name, role: me.role });
+      me.pendingEmail = e;
+      console.log(`[mock mail] email-change code for ${e}: ${MOCK_CODE}`);
+      send(res, 200, { id: me.id, email: me.email, name: me.name, role: me.role, pending_email: e, mail_mode: "console" });
+    });
+    return;
+  }
+  if (url.pathname === "/v1/account/email/confirm" && req.method === "POST") {
+    readJson(req).then(({ code }) => {
+      if (code !== MOCK_CODE || !me.pendingEmail) return send(res, 400, wrongCode);
+      me.email = me.pendingEmail;
+      delete me.pendingEmail;
+      send(res, 200, { id: me.id, email: me.email, name: me.name, role: me.role });
+    });
+    return;
+  }
+  if (url.pathname === "/v1/account/email/resend") return send(res, 200, { ok: true });
+  if (url.pathname === "/v1/account/password" && req.method === "POST") {
+    // The mock keeps its one made-up password, so it only checks the current one.
+    readJson(req).then(({ current_password }) =>
+      current_password === MOCK_PASSWORD
+        ? send(res, 200, { ok: true })
+        : send(res, 400, { error: { code: "wrong_password", message: "Your current password is wrong." } }),
+    );
+    return;
+  }
   if (url.pathname === "/v1/admin/users") {
     return send(res, 200, {
       users: users.map((u) => ({ ...u, created_at: new Date().toISOString(), last_login_at: null, total_usd: 0, today_usd: 0, questions: 0 })),
@@ -112,11 +181,12 @@ createServer((req, res) => {
     readJson(req).then(({ email }) => {
       const invite = { id: crypto.randomUUID(), email, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 864e5).toISOString(), status: "pending" };
       invites.unshift(invite);
-      send(res, 200, { code: crypto.randomUUID().replace(/-/g, ""), invite });
+      console.log(`[mock mail] invite for ${email}`);
+      send(res, 200, { code: crypto.randomUUID().replace(/-/g, ""), invite, mail: { sent: true, mode: "console" } });
     });
     return;
   }
-  const act = /^\/v1\/admin\/(users|invites)\/([0-9a-f-]{36})\/(disable|enable|revoke)$/.exec(url.pathname);
+  const act = /^\/v1\/admin\/(users|invites)\/([0-9a-f-]{36})\/(disable|enable|delete|revoke)$/.exec(url.pathname);
   if (act) {
     if (act[1] === "invites") {
       const i = invites.find((x) => x.id === act[2]);
@@ -124,6 +194,13 @@ createServer((req, res) => {
       return send(res, 200, { revoked: !!i });
     }
     const u = users.find((x) => x.id === act[2]);
+    if (act[3] === "delete") {
+      if (!u || u.id === me.id || u.role === "admin") {
+        return send(res, 403, { error: { code: "not_allowed", message: "That is not allowed." } });
+      }
+      users.splice(users.indexOf(u), 1);
+      return send(res, 200, { id: u.id, deleted: true, questions_removed: 0 });
+    }
     if (u && u.id !== me.id) u.disabled = act[3] === "disable";
     return send(res, 200, { id: act[2], disabled: !!u?.disabled });
   }
@@ -180,4 +257,4 @@ createServer((req, res) => {
     });
   }
   send(res, 404, { error: { code: "not_found", message: "No such endpoint." } });
-}).listen(PORT, "127.0.0.1", () => console.log(`mock API on http://127.0.0.1:${PORT} (sign in: admin@mock.test / ${MOCK_PASSWORD})`));
+}).listen(PORT, "127.0.0.1", () => console.log(`mock API on http://127.0.0.1:${PORT} (sign in: admin@mock.test / ${MOCK_PASSWORD}, code ${MOCK_CODE})`));

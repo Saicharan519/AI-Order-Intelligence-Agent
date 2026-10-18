@@ -119,6 +119,61 @@ class AccountStore:
             ).fetchone()
         return _user(row) if row else None
 
+    def user_by_email(self, email: str) -> User | None:
+        e = normalise_email(email)
+        if not e:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, email, name, role, disabled FROM app.users WHERE email = %s", (e,)
+            ).fetchone()
+        return _user(row) if row else None
+
+    def check_password(self, user: User, password: str) -> bool:
+        """Whether this is the user's current password (asked again before sensitive changes)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT password_hash FROM app.users WHERE id = %s", (user.id,)
+            ).fetchone()
+        return bool(row) and verify_password(password, row[0])
+
+    def update_profile(self, user: User, name: str, email: str) -> User:
+        """Change the user's own name and email (the caller has checked the password)."""
+        e = normalise_email(email)
+        if not e:
+            raise AccountError("invalid_email", "Enter a valid email address.")
+        name = (name or "").strip()
+        if not 1 <= len(name) <= 80:
+            raise AccountError("invalid_name", "Enter a name of 1 to 80 characters.")
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "UPDATE app.users SET name = %s, email = %s WHERE id = %s "
+                    "RETURNING id, email, name, role, disabled",
+                    (name, e, user.id),
+                ).fetchone()
+        except psycopg.errors.UniqueViolation:
+            raise AccountError(
+                "email_taken", "An account with this email already exists."
+            ) from None
+        if row is None:
+            raise AccountError("not_found", "No such user.")
+        return _user(row)
+
+    def change_password(self, user: User, new_password: str, keep_token: str) -> None:
+        """Set a new password and end every other session (other devices sign in again)."""
+        if problem := password_problem(new_password, user.email):
+            raise AccountError("weak_password", problem)
+        with self._connect() as conn, conn.transaction():
+            conn.execute(
+                "UPDATE app.users SET password_hash = %s WHERE id = %s",
+                (hash_password(new_password), user.id),
+            )
+            conn.execute(
+                "DELETE FROM app.sessions WHERE user_id = %s AND token_hash <> %s",
+                (user.id, token_hash(keep_token)),
+            )
+
     def set_disabled(self, user_id: str, disabled: bool, by: User) -> User:
         if user_id == by.id:
             raise AccountError("not_allowed", "You cannot disable your own account.")
@@ -133,6 +188,28 @@ class AccountStore:
             if disabled:  # ends every session of that user at once
                 conn.execute("DELETE FROM app.sessions WHERE user_id = %s", (user_id,))
         return _user(row)
+
+    def delete_user(self, user_id: str, by: User) -> int:
+        """Delete an account and everything about it, in one transaction: conversations and
+        traces (the spend rows stay, without their text, so budgets still count them),
+        sessions, codes, trusted devices, and invites for or used by that person. Returns
+        the number of questions removed. Admins cannot be deleted (nor yourself)."""
+        if user_id == by.id:
+            raise AccountError("not_allowed", "You cannot delete your own account.")
+        with self._connect() as conn, conn.transaction():
+            row = conn.execute(
+                "SELECT email, role FROM app.users WHERE id = %s FOR UPDATE", (user_id,)
+            ).fetchone()
+            if row is None:
+                raise AccountError("not_found", "No such user.")
+            if row[1] == "admin":
+                raise AccountError("not_allowed", "An admin account cannot be deleted here.")
+            removed = conn.execute("SELECT trace.forget_user(%s)", (user_id,)).fetchone()[0]
+            conn.execute(
+                "DELETE FROM app.invites WHERE used_by = %s OR email = %s", (user_id, row[0])
+            )
+            conn.execute("DELETE FROM app.users WHERE id = %s", (user_id,))  # cascades
+        return removed
 
     def list_users(self) -> list[dict]:
         """Every account with its spend today and in total (LLM calls of its requests)."""

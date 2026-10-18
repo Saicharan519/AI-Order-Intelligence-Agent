@@ -97,6 +97,16 @@ function fakeApi(
     createInvite: vi.fn(async () => notFound),
     revokeInvite: vi.fn(async () => notFound),
     setUserDisabled: vi.fn(async () => notFound),
+    deleteUser: vi.fn(async () => notFound),
+    updateProfile: vi.fn(async () => notFound),
+    changePassword: vi.fn(async () => notFound),
+    verifyCode: vi.fn(async () => notFound),
+    resendCode: vi.fn(async () => notFound),
+    forgotPassword: vi.fn(async () => notFound),
+    resendResetCode: vi.fn(async () => notFound),
+    resetPassword: vi.fn(async () => notFound),
+    confirmEmail: vi.fn(async () => notFound),
+    resendEmailCode: vi.fn(async () => notFound),
   };
   return api;
 }
@@ -127,6 +137,7 @@ describe("Workspace", () => {
     expect(screen.getByText("Your budget today")).toBeInTheDocument();
     expect(screen.getByText("$0.0012 / $0.05")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Account settings" })).toHaveAttribute("href", "/settings");
     await user.click(screen.getByRole("button", { name: "Sign out" }));
     expect(api.signOut).toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith("/login");

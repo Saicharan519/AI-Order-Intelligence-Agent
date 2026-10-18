@@ -32,12 +32,13 @@ export function Badge({ tone = "neutral", icon, children }: { tone?: Tone; icon?
   );
 }
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const VARIANTS: Record<Variant, string> = {
   primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm disabled:bg-zinc-300",
   secondary: "bg-white text-zinc-800 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50 disabled:text-zinc-400",
   ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:text-zinc-300",
+  danger: "bg-white text-red-600 ring-1 ring-inset ring-red-200 hover:bg-red-50 hover:ring-red-300 disabled:text-red-300",
 };
 
 export function Button({
@@ -50,7 +51,7 @@ export function Button({
     <button
       type="button"
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed",
         size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
         VARIANTS[variant],
         className,
@@ -128,9 +129,10 @@ export function SectionTitle({ children, aside }: { children: ReactNode; aside?:
   );
 }
 
-export function Callout({ tone, icon, children }: { tone: "info" | "warn" | "error"; icon?: ReactNode; children: ReactNode }) {
+export function Callout({ tone, icon, children }: { tone: "info" | "success" | "warn" | "error"; icon?: ReactNode; children: ReactNode }) {
   const styles = {
     info: "border-sky-200 bg-sky-50 text-sky-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
     warn: "border-amber-200 bg-amber-50 text-amber-900",
     error: "border-rose-200 bg-rose-50 text-rose-900",
   }[tone];

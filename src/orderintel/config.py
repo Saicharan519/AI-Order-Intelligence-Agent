@@ -58,6 +58,19 @@ class Settings(BaseSettings):
     # only by the overall caps above.
     user_daily_cap_usd: float = 0.05
     llm_enabled: bool = True  # kill switch: false blocks every LLM call from the API
+
+    # Email: sign-in codes, password reset, email change, invites. "console" prints each
+    # email in the API's terminal (development); "smtp" sends it, for example through Gmail
+    # with an App Password; "off" sends nothing (and sign-in codes cannot be used).
+    mail_mode: str = "console"
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: SecretStr | None = None
+    mail_from_name: str = "Order Intelligence"
+    # A 6-digit emailed code after the password (a trusted device skips it for 30 days).
+    login_code_required: bool = True
+    app_url: str = "http://localhost:3000"  # the web app, for links in emails
     api_url: str = "http://127.0.0.1:8000"  # where the UI finds the API
 
 

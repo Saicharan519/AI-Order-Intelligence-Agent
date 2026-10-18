@@ -52,7 +52,8 @@ export function apiUrl(): string {
 const UUID = "[0-9a-fA-F-]{36}";
 
 /** The FastAPI endpoints the browser may reach through the proxy, as (method, pattern).
- * Sign-in, sign-up and sign-out have their own routes (they set or clear the cookie). */
+ * Sign-in, sign-up, emailed codes, password reset and sign-out have their own routes under
+ * /api/auth (they set or clear cookies; see AUTH_ACTIONS in proxy.ts). */
 export const ALLOWED: [string, RegExp][] = [
   ["GET", /^v1\/health$/],
   ["GET", /^v1\/budget$/],
@@ -64,8 +65,9 @@ export const ALLOWED: [string, RegExp][] = [
   ["POST", /^v1\/sessions\/[A-Za-z0-9_-]{1,64}\/scope\/clear$/],
   ["GET", /^v1\/auth\/me$/],
   ["GET", /^v1\/auth\/invites\/[A-Za-z0-9_-]{20,100}$/],
+  ["POST", /^v1\/account\/(?:profile|password|email\/confirm|email\/resend)$/],
   ["GET", /^v1\/admin\/users$/],
-  ["POST", new RegExp(`^v1/admin/users/${UUID}/(?:disable|enable)$`)],
+  ["POST", new RegExp(`^v1/admin/users/${UUID}/(?:disable|enable|delete)$`)],
   ["GET", /^v1\/admin\/invites$/],
   ["POST", /^v1\/admin\/invites$/],
   ["POST", new RegExp(`^v1/admin/invites/${UUID}/revoke$`)],
