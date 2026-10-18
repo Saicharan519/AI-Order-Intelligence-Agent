@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     access_code: SecretStr | None = None
     rate_limit_per_ip_per_min: int = 10
     rate_limit_global_per_min: int = 60
+    # Each signed-in user's own daily model spend; admins and the operator key are limited
+    # only by the overall caps above.
+    user_daily_cap_usd: float = 0.05
     llm_enabled: bool = True  # kill switch: false blocks every LLM call from the API
     api_url: str = "http://127.0.0.1:8000"  # where the UI finds the API
 

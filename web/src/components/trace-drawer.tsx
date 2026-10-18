@@ -38,12 +38,10 @@ function summary(s: TraceStep): string {
 
 export function TraceDrawer({
   api,
-  code,
   requestId,
   onClose,
 }: {
   api: Api;
-  code: string;
   requestId: string | null;
   onClose: () => void;
 }) {
@@ -53,7 +51,7 @@ export function TraceDrawer({
   useEffect(() => {
     if (!requestId) return;
     let live = true; // the drawer is keyed by request id, so state starts empty
-    api.trace(code, requestId).then((r) => {
+    api.trace(requestId).then((r) => {
       if (!live) return;
       if (r.ok) setTrace(r.data);
       else setError(errorMessage(r.code));
@@ -61,7 +59,7 @@ export function TraceDrawer({
     return () => {
       live = false;
     };
-  }, [api, code, requestId]);
+  }, [api, requestId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();

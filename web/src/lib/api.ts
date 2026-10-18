@@ -1,33 +1,52 @@
-// Browser-side calls to this app's /api proxy. Errors come back as codes from
-// ERROR_MESSAGES, never as thrown exceptions, so every caller handles them the same way.
+// Browser-side calls to this app's /api proxy. Sign-in state is an httpOnly cookie the
+// browser sends automatically; no token or code is handled here. Errors come back as codes
+// from ERROR_MESSAGES, never as thrown exceptions, so every caller handles them the same way.
 
-import type { AppConfig, AskResponse, Budget, Catalog, Health, SessionDetail, SessionSummary, Trace } from "./types";
+import type {
+  AdminInvite,
+  AdminUser,
+  AskResponse,
+  Budget,
+  Catalog,
+  Health,
+  SessionDetail,
+  SessionSummary,
+  Trace,
+  UserInfo,
+} from "./types";
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; code: string; status: number };
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; code: string; status: number; message?: string };
 
 export interface Api {
-  config(): Promise<ApiResult<AppConfig>>;
+  me(): Promise<ApiResult<UserInfo>>;
+  signIn(email: string, password: string): Promise<ApiResult<{ user: UserInfo }>>;
+  signUp(invite: string, name: string, password: string): Promise<ApiResult<{ user: UserInfo }>>;
+  signOut(): Promise<ApiResult<{ ok: boolean }>>;
+  inviteInfo(code: string): Promise<ApiResult<{ email: string; expires_at: string }>>;
   health(): Promise<ApiResult<Health>>;
-  budget(code: string): Promise<ApiResult<Budget>>;
-  ask(code: string, question: string, sessionId: string): Promise<ApiResult<AskResponse>>;
-  trace(code: string, requestId: string): Promise<ApiResult<Trace>>;
-  clearScope(code: string, sessionId: string): Promise<ApiResult<{ cleared: boolean }>>;
-  sessions(code: string): Promise<ApiResult<{ sessions: SessionSummary[] }>>;
-  session(code: string, sessionId: string): Promise<ApiResult<SessionDetail>>;
-  catalog(code: string): Promise<ApiResult<Catalog>>;
+  budget(): Promise<ApiResult<Budget>>;
+  ask(question: string, sessionId: string): Promise<ApiResult<AskResponse>>;
+  trace(requestId: string): Promise<ApiResult<Trace>>;
+  clearScope(sessionId: string): Promise<ApiResult<{ cleared: boolean }>>;
+  sessions(): Promise<ApiResult<{ sessions: SessionSummary[] }>>;
+  session(sessionId: string): Promise<ApiResult<SessionDetail>>;
+  catalog(): Promise<ApiResult<Catalog>>;
+  adminUsers(): Promise<ApiResult<{ users: AdminUser[]; user_daily_cap_usd: number }>>;
+  adminInvites(): Promise<ApiResult<{ invites: AdminInvite[] }>>;
+  createInvite(email: string): Promise<ApiResult<{ code: string; invite: AdminInvite }>>;
+  revokeInvite(id: string): Promise<ApiResult<{ revoked: boolean }>>;
+  setUserDisabled(id: string, disabled: boolean): Promise<ApiResult<{ id: string; disabled: boolean }>>;
 }
 
-async function call<T>(method: string, path: string, code: string, body?: unknown): Promise<ApiResult<T>> {
+async function call<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
   let r: Response;
   try {
     r = await fetch(`/api/${path}`, {
       method,
-      headers: {
-        "x-access-code": code,
-        ...(body !== undefined ? { "content-type": "application/json" } : {}),
-      },
+      headers: body !== undefined ? { "content-type": "application/json" } : {},
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
+      credentials: "same-origin",
     });
   } catch {
     return { ok: false, code: "connection_error", status: 0 };
@@ -39,20 +58,31 @@ async function call<T>(method: string, path: string, code: string, body?: unknow
     return { ok: false, code: "internal_error", status: r.status };
   }
   if (!r.ok) {
-    const code_ = (data as { error?: { code?: string } })?.error?.code ?? "internal_error";
-    return { ok: false, code: code_, status: r.status };
+    const e = (data as { error?: { code?: string; message?: string } })?.error;
+    return { ok: false, code: e?.code ?? "internal_error", status: r.status, message: e?.message };
   }
   return { ok: true, data: data as T };
 }
 
+const enc = encodeURIComponent;
+
 export const httpApi: Api = {
-  config: () => call("GET", "config", ""),
-  health: () => call("GET", "v1/health", ""),
-  budget: (code) => call("GET", "v1/budget", code),
-  ask: (code, question, sessionId) => call("POST", "v1/ask", code, { question, session_id: sessionId }),
-  trace: (code, id) => call("GET", `v1/requests/${encodeURIComponent(id)}`, code),
-  clearScope: (code, sessionId) => call("POST", `v1/sessions/${encodeURIComponent(sessionId)}/scope/clear`, code),
-  sessions: (code) => call("GET", "v1/sessions", code),
-  session: (code, sessionId) => call("GET", `v1/sessions/${encodeURIComponent(sessionId)}`, code),
-  catalog: (code) => call("GET", "v1/catalog", code),
+  me: () => call("GET", "v1/auth/me"),
+  signIn: (email, password) => call("POST", "auth/login", { email, password }),
+  signUp: (invite, name, password) => call("POST", "auth/signup", { invite, name, password }),
+  signOut: () => call("POST", "auth/logout", {}),
+  inviteInfo: (code) => call("GET", `v1/auth/invites/${enc(code)}`),
+  health: () => call("GET", "v1/health"),
+  budget: () => call("GET", "v1/budget"),
+  ask: (question, sessionId) => call("POST", "v1/ask", { question, session_id: sessionId }),
+  trace: (id) => call("GET", `v1/requests/${enc(id)}`),
+  clearScope: (sessionId) => call("POST", `v1/sessions/${enc(sessionId)}/scope/clear`, {}),
+  sessions: () => call("GET", "v1/sessions"),
+  session: (sessionId) => call("GET", `v1/sessions/${enc(sessionId)}`),
+  catalog: () => call("GET", "v1/catalog"),
+  adminUsers: () => call("GET", "v1/admin/users"),
+  adminInvites: () => call("GET", "v1/admin/invites"),
+  createInvite: (email) => call("POST", "v1/admin/invites", { email }),
+  revokeInvite: (id) => call("POST", `v1/admin/invites/${enc(id)}/revoke`, {}),
+  setUserDisabled: (id, disabled) => call("POST", `v1/admin/users/${enc(id)}/${disabled ? "disable" : "enable"}`, {}),
 };

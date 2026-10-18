@@ -60,7 +60,8 @@ describe("format helpers", () => {
   });
 
   it("maps every known error code and falls back for unknown ones", () => {
-    expect(errorMessage("unauthorized")).toMatch(/access code/);
+    expect(errorMessage("unauthorized")).toMatch(/sign in/);
+    expect(errorMessage("invalid_credentials")).toBe("Email or password is wrong.");
     expect(errorMessage("budget_exhausted")).toMatch(/No call was made/);
     expect(errorMessage("something_new")).toBe(errorMessage("internal_error"));
     expect(errorMessage(undefined)).toBe(errorMessage("internal_error"));

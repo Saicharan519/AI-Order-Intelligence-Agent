@@ -4,6 +4,7 @@
 
 import clsx from "clsx";
 import {
+  ArrowRight,
   Ban,
   BookOpen,
   Boxes,
@@ -50,13 +51,59 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+type Section = { title: string; text: string; steps?: string[] };
+
+/** One overview section; "Sales: ..." style sentences become a short labelled list. */
+function OverviewSection({ section }: { section: Section }) {
+  const parts = section.text.split(/(?<=\.)\s+(?=[A-Z][a-z]+: )/);
+  const labelled = parts.length > 1 && parts.every((p) => /^[A-Z][a-z]+: /.test(p));
+  return (
+    <section>
+      <h3 className="mb-1.5 text-sm font-semibold text-zinc-900">{section.title}</h3>
+      {section.steps && (
+        <ol aria-label="Order steps" className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+          {section.steps.map((step, i) => (
+            <li key={step} className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 font-medium text-brand-700">
+                <span className="flex size-4 items-center justify-center rounded-full bg-brand-600 text-[10px] text-white">{i + 1}</span>
+                {step}
+              </span>
+              {i < section.steps!.length - 1 && <ArrowRight className="size-3 text-zinc-400" aria-hidden="true" />}
+            </li>
+          ))}
+        </ol>
+      )}
+      {labelled ? (
+        <ul className="space-y-1.5">
+          {parts.map((p) => {
+            const [label, ...rest] = p.split(": ");
+            return (
+              <li key={label} className="text-[14px] leading-relaxed text-zinc-700">
+                <b className="font-medium text-zinc-900">{label}:</b> {rest.join(": ")}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-[14px] leading-relaxed text-zinc-700">{section.text}</p>
+      )}
+    </section>
+  );
+}
+
 function Overview({ catalog, onAsk }: { catalog: Catalog; onAsk: (q: string) => void }) {
   const f = catalog.facts;
+  const sections = catalog.dataset.overview ?? [];
+  const [lead, ...rest] = sections;
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[14.5px] leading-relaxed text-zinc-700">{catalog.dataset.description}</p>
-        <p className="mt-1 text-xs text-zinc-500">Source: {catalog.dataset.source}</p>
+        {lead ? (
+          <OverviewSection section={lead} />
+        ) : (
+          <p className="text-[14.5px] leading-relaxed text-zinc-700">{catalog.dataset.description}</p>
+        )}
+        <p className="mt-1.5 text-xs text-zinc-500">Source: {catalog.dataset.source}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -67,6 +114,10 @@ function Overview({ catalog, onAsk }: { catalog: Catalog; onAsk: (q: string) => 
         <Stat label="Categories" value={f.categories} />
         <Stat label="Customer states" value={f.customer_states} />
       </div>
+
+      {rest.slice(0, 1).map((s) => (
+        <OverviewSection key={s.title} section={s} />
+      ))}
 
       <div>
         <SectionTitle>Orders per month</SectionTitle>
@@ -100,6 +151,10 @@ function Overview({ catalog, onAsk }: { catalog: Catalog; onAsk: (q: string) => 
           </div>
         )}
       </div>
+
+      {rest.slice(1).map((s) => (
+        <OverviewSection key={s.title} section={s} />
+      ))}
 
       <div>
         <SectionTitle>Things you can ask</SectionTitle>

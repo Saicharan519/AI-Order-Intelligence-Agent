@@ -13,7 +13,7 @@ Guidance for AI coding sessions in this repository. The source of truth for scop
 .venv/Scripts/python -m streamlit run src/orderintel/ui/app.py -- --local   # simple fallback UI
 ```
 
-Web app (Next.js 16, from `web/`): `npm run dev:local` (real API, code from `.env`), `npm run dev:mock` (recorded answers, no backend, $0), and the CI checks `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. Next.js 16 differs from older versions: read `web/node_modules/next/dist/docs/` before changing framework-level code (see `web/AGENTS.md`).
+Web app (Next.js 16, from `web/`): `npm run dev` (real API; sign in, invite-only accounts; first admin via `scripts/create_admin.py`, which prompts for the password), `npm run dev:mock` (recorded answers, no backend, $0), and the CI checks `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. Next.js 16 differs from older versions: read `web/node_modules/next/dist/docs/` before changing framework-level code (see `web/AGENTS.md`).
 
 Database: `docker compose up -d db` (container `orderintel-db-1`, port 5432). Schema changes go in a NEW file in `db/migrations/` (applied files are checksummed; editing one is an error), then `scripts/migrate.py`; after changing views, run `scripts/gen_allowlists.py`.
 
@@ -33,7 +33,8 @@ Database: `docker compose up -d db` (container `orderintel-db-1`, port 5432). Sc
 - `agent/precheck.py` answers questions about the data, out-of-range periods, and why-questions about months outside the analysis window in code before the router; "sparse" means outside the window, never a fixed order count (the synthetic CI data has about 400 orders in every month).
 - `src/orderintel/safety/` is test-only; no product module may import it (a test enforces this).
 - Traces and logs pass through `orderintel/redact.py`.
-- The browser never calls FastAPI directly: `web/src/lib/server/` forwards an allow-list of eight endpoints with only the access code and JSON body. In local mode the web server supplies `ACCESS_CODE` itself and must never return it to the browser (tests in `web/src/test/proxy.test.ts`).
+- The browser never calls FastAPI directly: `web/src/lib/server/` forwards an allow-list of endpoints with only the JSON body and the session from the httpOnly `oi_session` cookie (as `Authorization: Bearer`); the token is never returned to the browser, and every POST must pass the same-origin check (tests in `web/src/test/proxy.test.ts`).
+- Accounts (`src/orderintel/auth/`, schema `app`, written as `oi_trace`; `oi_agent` has no access): scrypt password hashes, tokens and invite codes stored only as SHA-256 hashes, invite-only sign-up. Every history, trace and spend query is scoped to the caller's user id (NULL for the `X-Access-Code` operator key); `tests/integration/test_accounts.py` proves one user cannot see another's conversations. Never create real accounts or set real passwords for the owner; test accounts use the domain `accounts.test` and are deleted.
 
 ## Tests
 

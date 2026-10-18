@@ -4,10 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:local": "node scripts/with-local.mjs dev",
     "build": "next build",
     "start": "next start",
-    "start:local": "node scripts/with-local.mjs start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",

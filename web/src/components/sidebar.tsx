@@ -1,8 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { History, Loader2, Lock, MessageSquare, Plus, ShieldCheck, Wallet } from "lucide-react";
-import type { Budget, Health, SessionSummary } from "@/lib/types";
+import { History, Loader2, LogOut, MessageSquare, Plus, Shield, Wallet } from "lucide-react";
+import Link from "next/link";
+import type { Budget, Health, SessionSummary, UserInfo } from "@/lib/types";
 import { Logo } from "./ui";
 
 /** Group conversations by when they were last used, newest first. */
@@ -24,6 +25,44 @@ function timeOf(iso: string): string {
   return sameDay
     ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "?") + (parts.length > 1 ? parts.at(-1)![0] : "")).toUpperCase();
+}
+
+/** A user sees their own daily budget; an admin sees the project's overall budget. */
+function BudgetMeter({ budget }: { budget: Budget }) {
+  const mine = budget.you;
+  const spent = mine ? mine.today_usd : budget.total_usd;
+  const cap = mine ? mine.daily_cap_usd : budget.total_cap_usd;
+  const used = cap > 0 ? Math.min(spent / cap, 1) : 1;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5 text-zinc-400">
+          <Wallet className="size-3.5" /> {mine ? "Your budget today" : "Model budget"}
+        </span>
+        <span className="font-medium text-zinc-200 tabular-nums">
+          ${spent.toFixed(4)} / ${cap.toFixed(2)}
+        </span>
+      </div>
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-zinc-800"
+        role="progressbar"
+        aria-label="Budget used"
+        aria-valuenow={Math.round(used * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className={clsx("h-full rounded-full", used > 0.8 ? "bg-rose-500" : "bg-brand-500")} style={{ width: `${Math.max(used * 100, 1.5)}%` }} />
+      </div>
+      <div className="mt-1 text-[11px] text-zinc-500 tabular-nums">
+        {mine ? "Resets at midnight UTC" : `Today $${budget.today_usd.toFixed(4)} of $${budget.daily_cap_usd.toFixed(2)}`}
+      </div>
+    </div>
+  );
 }
 
 function StatusDot({ health }: { health: Health | null | "down" }) {
@@ -51,9 +90,8 @@ export function Sidebar({
   onNew,
   budget,
   health,
-  local,
-  authed,
-  onLock,
+  user,
+  onSignOut,
 }: {
   sessions: SessionSummary[] | null;
   currentId: string | null;
@@ -63,11 +101,9 @@ export function Sidebar({
   onNew: () => void;
   budget: Budget | null;
   health: Health | null | "down";
-  local: boolean;
-  authed: boolean;
-  onLock: () => void;
+  user: UserInfo | null;
+  onSignOut: () => void;
 }) {
-  const used = budget ? Math.min(budget.total_usd / budget.total_cap_usd, 1) : 0;
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col bg-zinc-950 text-zinc-300">
       <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
@@ -135,38 +171,41 @@ export function Sidebar({
       </nav>
 
       <div className="space-y-3 border-t border-zinc-900 px-5 py-4">
-        {budget && (
-          <div>
-            <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-zinc-400">
-                <Wallet className="size-3.5" /> Model budget
-              </span>
-              <span className="font-medium text-zinc-200 tabular-nums">
-                ${budget.total_usd.toFixed(4)} / ${budget.total_cap_usd.toFixed(2)}
-              </span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800" role="progressbar" aria-label="Budget used" aria-valuenow={Math.round(used * 100)} aria-valuemin={0} aria-valuemax={100}>
-              <div className={clsx("h-full rounded-full", used > 0.8 ? "bg-rose-500" : "bg-brand-500")} style={{ width: `${Math.max(used * 100, 1.5)}%` }} />
-            </div>
-            <div className="mt-1 text-[11px] text-zinc-500 tabular-nums">
-              Today ${budget.today_usd.toFixed(4)} of ${budget.daily_cap_usd.toFixed(2)}
-            </div>
+        {budget && <BudgetMeter budget={budget} />}
+        <StatusDot health={health} />
+        {user && (
+          <div className="flex items-center gap-2.5 rounded-lg bg-zinc-900 px-2.5 py-2">
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white"
+            >
+              {initials(user.name)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-zinc-100">{user.name}</span>
+              <span className="block truncate text-[11px] text-zinc-500">{user.email}</span>
+            </span>
+            {user.role === "admin" && (
+              <Link
+                href="/admin"
+                title="Admin: users and invites"
+                aria-label="Admin"
+                className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                <Shield className="size-4" />
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign out"
+              aria-label="Sign out"
+              className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            >
+              <LogOut className="size-4" />
+            </button>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <StatusDot health={health} />
-          {local ? (
-            <span className="flex items-center gap-1 text-[11px] text-zinc-500" title="The server supplies the access code from .env">
-              <ShieldCheck className="size-3" /> Local mode
-            </span>
-          ) : (
-            authed && (
-              <button type="button" onClick={onLock} className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300">
-                <Lock className="size-3" /> Lock
-              </button>
-            )
-          )}
-        </div>
       </div>
     </aside>
   );

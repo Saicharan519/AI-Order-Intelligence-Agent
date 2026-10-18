@@ -162,15 +162,23 @@ npm install
 npm run dev
 ```
 
-The app asks for the access code: the `ACCESS_CODE` value in your `.env`. It is kept in the browser tab's memory only. For local development, `npm run dev:local` makes the web server read the code from `.env` itself, so the browser never sees it (accepted only when `API_URL` points to localhost). The browser talks only to the web app's `/api` routes, which forward eight allow-listed endpoints to FastAPI.
+**Accounts (invite-only).** Create your own admin account once, in a terminal (the password is typed hidden and stored only as a scrypt hash):
+
+```bash
+.venv/Scripts/python scripts/create_admin.py --email you@example.com --name "Your Name"
+```
+
+Then sign in at http://localhost:3000/login. To give someone access, open **Admin** (the shield icon next to your name), enter their email, and send them the one-time invite link it shows; they choose their own name and password, and the link stops working once used (or after 7 days). Each user sees only their own conversations and has their own daily model budget (`USER_DAILY_CAP_USD`, default $0.05); the admin sees every user's spend and can disable an account, which signs it out at once. Forgot your password: `scripts/create_admin.py --email you@example.com --reset-password`.
+
+How it is protected: passwords are scrypt hashes; session tokens and invite codes are stored only as SHA-256 hashes; the session lives in an httpOnly, SameSite cookie set by the web app's own server, so page scripts cannot read it; every POST must come from the app's own origin; repeated failed sign-ins are refused for 15 minutes; a wrong email and a wrong password get the same answer. The browser talks only to the web app's `/api` routes, which forward an allow-list of endpoints to FastAPI. The `ACCESS_CODE` in `.env` remains as an operator key for scripts, tests and the Streamlit fallback.
 
 What the web app shows: an "Explore the data" guide (counts, tables and columns, definitions, example questions by topic, limits), friendly refusals that point to it, example questions, saved conversations grouped by day (reopened from the stored answers at no cost), the answer card with KPI tiles, charts (Recharts), sortable tables with CSV download, the investigation report (verdict, driver, where the days went, states and sellers by excess late orders), the evidence (validated SQL with parameters and row previews), the scope and definitions, follow-up suggestions, the session scope bar, the model budget, API health, and a per-request trace drawer.
 
-To work on the UI with no backend and no model calls ($0), `npm run dev:mock` starts a mock API that replays recorded answers (access code `mock`).
+To work on the UI with no backend and no model calls ($0), `npm run dev:mock` starts a mock API that replays recorded answers (sign in as `admin@mock.test` with `mock passphrase 1`, made-up test values).
 
 The original Streamlit UI still works as a simple fallback: `.venv/Scripts/python -m streamlit run src/orderintel/ui/app.py -- --local` (http://localhost:8501). Every request is traced; summarise the traces with `.venv/Scripts/python scripts/trace_report.py`.
 
-API: `POST /v1/ask`, `GET /v1/catalog` (the data guide: counts, tables, definitions, example questions; no model call), `GET /v1/requests/{id}`, `GET /v1/sessions` and `GET /v1/sessions/{id}` (saved conversations, read from the traces), `POST /v1/sessions/{id}/scope/clear`, `GET /v1/budget` (all need the `X-Access-Code` header) and `GET /v1/health`. Set `LLM_ENABLED=false` in `.env` to block all model calls.
+API: `POST /v1/ask`, `GET /v1/catalog` (the data guide: counts, tables, definitions, example questions; no model call), `GET /v1/requests/{id}`, `GET /v1/sessions` and `GET /v1/sessions/{id}` (saved conversations, read from the traces), `POST /v1/sessions/{id}/scope/clear`, `GET /v1/budget` (all need a signed-in user's `Authorization: Bearer` session or the `X-Access-Code` operator key), the account endpoints `/v1/auth/*` and `/v1/admin/*`, and `GET /v1/health`. Set `LLM_ENABLED=false` in `.env` to block all model calls.
 
 ## Tests and evaluation
 
@@ -217,7 +225,8 @@ Paid evaluations print an estimate with `--estimate` and refuse to run without `
 | `password authentication failed` | A password in `.env` changed after the roles were created. Re-run `scripts/migrate.py`. |
 | Port 5432 already in use | Another PostgreSQL is running. Set `POSTGRES_PORT=5433` in `.env`. |
 | `LOAD FAILED ... missing files` | A CSV was extracted into a subfolder. Move the 9 files directly into `data/raw/`. |
-| UI says "The access code is missing or wrong." | Type the `ACCESS_CODE` from `.env`, or start the web app with `npm run dev:local` (Streamlit: `-- --local`). |
+| Web app keeps sending you to Sign in | Your session ended (signed out, disabled, or older than 7 days), or the API was started before migration 007: run `scripts/migrate.py` and restart the API. |
+| No account yet | Create the admin once with `scripts/create_admin.py`; everyone else needs an invite link from the Admin page. |
 | UI says "The API is not reachable." | Start the API first (terminal 1). The web app reads `API_URL` from the environment or `.env` (default `http://127.0.0.1:8000`). |
 | `npm install` is slow or files are locked | OneDrive is syncing `web/node_modules`. Pause sync during the install. |
 | `Permission denied` inside `.venv` | OneDrive sync can lock files. Pause sync or recreate the venv. |

@@ -6,7 +6,7 @@ import {
   CalendarRange,
   ChartLine,
   History,
-  KeyRound,
+
   Layers,
   Loader2,
   PackageSearch,
@@ -15,10 +15,11 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { httpApi, type Api } from "@/lib/api";
 import { errorMessage, newSessionId, scopeChips } from "@/lib/format";
-import type { AskResponse, Budget, Catalog, Health, SessionSummary } from "@/lib/types";
+import type { AskResponse, Budget, Catalog, Health, SessionSummary, UserInfo } from "@/lib/types";
 import { AnswerCard } from "./answer/answer-card";
 import { CatalogProvider } from "./catalog-context";
 import { DataGuide } from "./data-guide";
@@ -40,56 +41,6 @@ interface Turn {
   question: string;
   result?: AskResponse;
   error?: string;
-}
-
-function AccessGate({ api, onAuthed }: { api: Api; onAuthed: (code: string, budget: Budget) => void }) {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!code) return;
-    setBusy(true);
-    const r = await api.budget(code);
-    setBusy(false);
-    if (r.ok) onAuthed(code, r.data);
-    else setError(errorMessage(r.code));
-  };
-  return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <Card className="w-full max-w-md p-7">
-        <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-          <KeyRound className="size-5" />
-        </div>
-        <h1 className="text-xl font-semibold text-zinc-900">Enter your access code</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
-          This workspace is private. The code is the <code className="rounded bg-zinc-100 px-1 font-mono text-xs">ACCESS_CODE</code> value
-          set on the server (in its <code className="rounded bg-zinc-100 px-1 font-mono text-xs">.env</code> file). It is kept only in this
-          browser tab&apos;s memory and is never shown.
-        </p>
-        <form onSubmit={submit} className="mt-5 space-y-3">
-          <label htmlFor="access-code" className="sr-only">Access code</label>
-          <input
-            id="access-code"
-            type="password"
-            autoComplete="off"
-            autoFocus
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value);
-              setError(null);
-            }}
-            placeholder="Access code"
-            className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
-          />
-          {error && <Callout tone="error">{error}</Callout>}
-          <Button type="submit" variant="primary" className="w-full" disabled={!code || busy}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Unlock workspace
-          </Button>
-        </form>
-      </Card>
-    </div>
-  );
 }
 
 function EmptyState({ onPick, onOpenGuide }: { onPick: (q: string) => void; onOpenGuide: () => void }) {
@@ -159,9 +110,8 @@ function PendingCard() {
 }
 
 export function Workspace({ api = httpApi }: { api?: Api }) {
-  const [local, setLocal] = useState<boolean | null>(null);
-  const [code, setCode] = useState("");
-  const [authed, setAuthed] = useState(false);
+  const router = useRouter();
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [health, setHealth] = useState<Health | null | "down">(null);
   const [budget, setBudget] = useState<Budget | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -181,54 +131,51 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
   const sessionId = () => (session.current ||= newSessionId());
   const input = useRef<HTMLTextAreaElement>(null);
 
-  const refreshBudget = useCallback(
-    async (c: string) => {
-      const r = await api.budget(c);
-      if (r.ok) setBudget(r.data);
-    },
-    [api],
-  );
+  const refreshBudget = useCallback(async () => {
+    const r = await api.budget();
+    if (r.ok) setBudget(r.data);
+  }, [api]);
 
-  const loadCatalog = useCallback(
-    async (c: string) => {
-      const r = await api.catalog(c);
-      if (r.ok) {
-        setCatalog(r.data);
-        setCatalogError(null);
-      } else setCatalogError(errorMessage(r.code));
-    },
-    [api],
-  );
+  const loadCatalog = useCallback(async () => {
+    const r = await api.catalog();
+    if (r.ok) {
+      setCatalog(r.data);
+      setCatalogError(null);
+    } else setCatalogError(errorMessage(r.code));
+  }, [api]);
 
   const openGuide = () => {
     setGuideOpen(true);
-    if (!catalog) loadCatalog(code);
+    if (!catalog) loadCatalog();
   };
 
-  const refreshSessions = useCallback(
-    async (c: string) => {
-      const r = await api.sessions(c);
-      setSessions(r.ok ? r.data.sessions : []);
-    },
-    [api],
-  );
+  const refreshSessions = useCallback(async () => {
+    const r = await api.sessions();
+    setSessions(r.ok ? r.data.sessions : []);
+  }, [api]);
 
+  // Who is signed in; anyone else is sent to the sign-in page.
   useEffect(() => {
-    api.config().then((r) => {
-      const isLocal = r.ok && r.data.local;
-      setLocal(isLocal);
-      if (isLocal) {
-        setAuthed(true);
-        refreshBudget("");
-        refreshSessions("");
-        loadCatalog("");
+    api.me().then((r) => {
+      if (!r.ok) {
+        if (r.status === 401) router.replace("/login");
+        return;
       }
+      setUser(r.data);
+      refreshBudget();
+      refreshSessions();
+      loadCatalog();
     });
     const ping = () => api.health().then((r) => setHealth(r.ok ? r.data : "down"));
     ping();
     const t = setInterval(ping, 30_000);
     return () => clearInterval(t);
-  }, [api, refreshBudget, refreshSessions, loadCatalog]);
+  }, [api, router, refreshBudget, refreshSessions, loadCatalog]);
+
+  const signOut = async () => {
+    await api.signOut();
+    router.replace("/login");
+  };
 
   // Bring the newest turn to the top of the view, so its headline is what you read first.
   const lastId = turns.at(-1)?.id;
@@ -254,13 +201,13 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
     });
     setDraft("");
     setPending(true);
-    const r = await api.ask(code, q, sid);
+    const r = await api.ask(q, sid);
     setPending(false);
     setTurns((t) => t.map((x) => (x.id === id ? (r.ok ? { ...x, result: r.data } : { ...x, error: r.code }) : x)));
     if (r.ok && r.data.route === "investigate") setScope(scopeChips(r.data.scope));
-    if (!r.ok && r.code === "unauthorized" && !local) setAuthed(false);
-    refreshBudget(code);
-    refreshSessions(code);
+    if (!r.ok && r.code === "unauthorized") router.replace("/login");
+    refreshBudget();
+    refreshSessions();
     input.current?.focus();
   };
 
@@ -269,7 +216,7 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
     if (pending || sid === currentId) return;
     setCurrentId(sid);
     setOpening(true);
-    const r = await api.session(code, sid);
+    const r = await api.session(sid);
     setOpening(false);
     if (!r.ok) {
       setTurns([{ id: crypto.randomUUID(), question: "Open conversation", error: r.code }]);
@@ -290,7 +237,7 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
   };
 
   const newAnalysis = () => {
-    if (scope) api.clearScope(code, sessionId());
+    if (scope) api.clearScope(sessionId());
     setTurns([]);
     setScope(null);
     setCurrentId(null);
@@ -300,7 +247,7 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
   };
 
   const clearScope = async () => {
-    await api.clearScope(code, sessionId());
+    await api.clearScope(sessionId());
     setScope(null);
   };
 
@@ -321,15 +268,8 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
           onNew={newAnalysis}
           budget={budget}
           health={health}
-          local={!!local}
-          authed={authed}
-          onLock={() => {
-            setCode("");
-            setAuthed(false);
-            setBudget(null);
-            setSessions(null);
-            newAnalysis();
-          }}
+          user={user}
+          onSignOut={signOut}
         />
       </div>
 
@@ -352,7 +292,7 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
             </div>
           )}
           <div className="ml-auto flex items-center gap-2">
-            {authed && (
+            {user && (
               <Button size="sm" variant="ghost" onClick={openGuide}>
                 <BookOpen className="size-3.5" /> Data guide
               </Button>
@@ -361,21 +301,10 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
           </div>
         </header>
 
-        {local === null ? (
+        {user === null ? (
           <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
             <Loader2 className="mr-2 size-4 animate-spin" /> Connecting…
           </div>
-        ) : !authed ? (
-          <AccessGate
-            api={api}
-            onAuthed={(c, b) => {
-              setCode(c);
-              setBudget(b);
-              setAuthed(true);
-              refreshSessions(c);
-              loadCatalog(c);
-            }}
-          />
         ) : (
           <>
             <div className="scroll-thin flex-1 overflow-y-auto">
@@ -465,7 +394,7 @@ export function Workspace({ api = httpApi }: { api?: Api }) {
           ask(q);
         }}
       />
-      <TraceDrawer key={traceId ?? "none"} api={api} code={code} requestId={traceId} onClose={() => setTraceId(null)} />
+      <TraceDrawer key={traceId ?? "none"} api={api} requestId={traceId} onClose={() => setTraceId(null)} />
     </div>
     </CatalogProvider>
   );

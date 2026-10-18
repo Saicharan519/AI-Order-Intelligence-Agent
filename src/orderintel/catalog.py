@@ -36,6 +36,64 @@ VIEWS: dict[str, str] = {
     "whether it is inside the analysis window.",
 }
 
+# The guide's overview, in sections. No figures here: the counts and the timeline next to
+# it come from the data (a unit test enforces this).
+OVERVIEW: list[dict] = [
+    {
+        "title": "What Olist is",
+        "text": "Olist is a Brazilian e-commerce company that lets small and medium-sized shops "
+        "sell on large online marketplaces under a single contract. A customer buys on a "
+        "marketplace, Olist passes the order to the shop that sells the product (the seller), "
+        "the seller packs it and hands it to a carrier, and the carrier delivers it to the "
+        "customer anywhere in Brazil. This dataset is a real, anonymised extract of those "
+        "orders, published by Olist for research and learning.",
+    },
+    {
+        "title": "The life of one order",
+        "text": "Each order belongs to one customer and has one or more items. Every item is one "
+        "product from one seller, with its own price and freight charge. The order records "
+        "when it was bought, when the payment was approved, when the seller handed it to the "
+        "carrier, when it reached the customer, and the delivery date promised at purchase, "
+        "so the data shows how long each stage took and whether the promise was kept. After "
+        "delivery the customer can review the order with a score from one to five stars "
+        "(the review text itself is not in the data).",
+        "steps": [
+            "Customer buys",
+            "Payment approved",
+            "Seller hands to carrier",
+            "Delivered",
+            "Customer reviews",
+        ],
+    },
+    {
+        "title": "What you can learn from it",
+        "text": "Sales: revenue and orders by month, category, state, seller and payment type, "
+        "and the average order value. Delivery: how often orders arrive late, how long seller "
+        "handling and carrier transit take, and where late orders concentrate. Customers: "
+        "where they live and how many come back. Reviews: how scores move, and how they "
+        "differ between late and on-time orders. For a bad month, an investigation compares "
+        "it with the other months and shows where the change happened.",
+    },
+    {
+        "title": "Things to know before you ask",
+        "text": "Customers and sellers appear only as ids with their city and state: there are "
+        "no names. Money is in Brazilian reais (R$); revenue counts item prices of orders that "
+        "were not canceled or unavailable, and freight is reported separately. The data is "
+        "thin in its first and last months (see the timeline), so trends use the steady "
+        'months in between, and "today" means the end of the data. Payments can be by '
+        "credit card (often in installments), boleto (a Brazilian bank slip), voucher or "
+        "debit card.",
+    },
+    {
+        "title": "How the agent answers",
+        "text": "Each question becomes one read-only SQL query over the six tables below, or a "
+        "fixed set of queries for an investigation. The query is checked before it runs, the "
+        "result is computed by the database, and every number in the written answer is traced "
+        "back to that result. The Evidence tab of each answer shows the exact SQL. The data "
+        "shows what happened and where; it cannot show why.",
+    },
+]
+
 EXAMPLES: dict[str, list[str]] = {
     "Sales": [
         "Top 5 categories by revenue in 2017",
@@ -154,6 +212,7 @@ def build_catalog(settings: Settings | None = None) -> dict:
             "small sellers to customers. Each order has its items, payments, delivery dates "
             "and customer review score.",
             "source": "Public Olist dataset (Kaggle, CC BY-NC-SA 4.0)",
+            "overview": OVERVIEW,
         },
         "facts": facts,
         "views": [

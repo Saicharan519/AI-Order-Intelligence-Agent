@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  devIndicators: { position: "bottom-right" },
+  // No floating Next.js badge while developing (it never appears in production builds);
+  // compile and runtime errors are still shown.
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

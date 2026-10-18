@@ -95,6 +95,36 @@ export interface Budget {
   remaining_total_usd: number;
   remaining_today_usd: number;
   llm_enabled: boolean;
+  /** The signed-in user's own daily budget (null for admins). */
+  you?: { today_usd: number; daily_cap_usd: number } | null;
+}
+
+export interface UserInfo {
+  id: string | null;
+  email: string | null;
+  name: string;
+  role: "user" | "admin" | "operator";
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "user" | "admin";
+  disabled: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  total_usd: number;
+  today_usd: number;
+  questions: number;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string;
+  created_at: string;
+  expires_at: string;
+  status: "pending" | "used" | "revoked" | "expired";
 }
 
 export interface Health {
@@ -145,7 +175,12 @@ export interface SessionDetail {
 }
 
 export interface Catalog {
-  dataset: { name: string; description: string; source: string };
+  dataset: {
+    name: string;
+    description: string;
+    source: string;
+    overview?: { title: string; text: string; steps?: string[] }[];
+  };
   facts: {
     orders: number;
     delivered_orders: number;
@@ -167,6 +202,3 @@ export interface Catalog {
   missing_fields: { field: string; closest: string }[];
 }
 
-export interface AppConfig {
-  local: boolean;
-}

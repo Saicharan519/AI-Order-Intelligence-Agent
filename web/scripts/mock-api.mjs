@@ -4,7 +4,8 @@
 //   node scripts/mock-api.mjs            # listens on 127.0.0.1:8100
 //   API_URL=http://127.0.0.1:8100 npm run dev
 //
-// The access code for the mock is "mock" (it is not the real ACCESS_CODE).
+// Sign in to the mock as admin@mock.test with the password "mock passphrase 1" (made-up
+// test values, not a real account). Invite links work too: any invite code is accepted.
 // Answers come from src/test/fixtures/*.json, which are real responses stored in the trace
 // database; the question picks one by keyword.
 import { readFileSync, readdirSync } from "node:fs";
@@ -22,7 +23,30 @@ const fixtures = Object.fromEntries(
 const PORT = Number(process.env.MOCK_PORT ?? 8100);
 // Conversation history, in memory: session id -> turns (lost when the mock stops).
 const sessions = new Map();
-const CODE = "mock";
+const MOCK_PASSWORD = "mock passphrase 1";
+const users = [{ id: "00000000-0000-4000-8000-000000000001", email: "admin@mock.test", name: "Mock Admin", role: "admin", disabled: false }];
+const tokens = new Map(); // token -> user id
+const invites = [];
+
+function readJson(req) {
+  return new Promise((resolve) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => resolve(JSON.parse(body || "{}")));
+  });
+}
+
+function signedIn(req) {
+  const auth = req.headers.authorization ?? "";
+  const id = tokens.get(auth.replace(/^Bearer /, ""));
+  return users.find((u) => u.id === id && !u.disabled);
+}
+
+function startSession(user) {
+  const token = crypto.randomUUID();
+  tokens.set(token, user.id);
+  return { token, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
+}
 
 const RULES = [
   [/dataset|schema|what can i ask|show me the data\b/i, "about"],
@@ -51,8 +75,57 @@ const send = (res, status, body) => {
 createServer((req, res) => {
   const url = new URL(req.url, "http://x");
   if (url.pathname === "/v1/health") return send(res, 200, { status: "ok", database: "ok", llm_enabled: true });
-  if (req.headers["x-access-code"] !== CODE) {
-    return send(res, 401, { error: { code: "unauthorized", message: "A valid access code is required." } });
+  if (url.pathname === "/v1/auth/login" && req.method === "POST") {
+    readJson(req).then(({ email, password }) => {
+      const u = users.find((x) => x.email === String(email).toLowerCase() && !x.disabled);
+      if (!u || password !== MOCK_PASSWORD) {
+        return send(res, 401, { error: { code: "invalid_credentials", message: "Email or password is wrong." } });
+      }
+      send(res, 200, startSession(u));
+    });
+    return;
+  }
+  if (url.pathname === "/v1/auth/logout") return send(res, 200, { ok: true });
+  const inv = /^\/v1\/auth\/invites\/([A-Za-z0-9_-]{20,100})$/.exec(url.pathname);
+  if (inv) return send(res, 200, { email: "invited@mock.test", expires_at: new Date(Date.now() + 7 * 864e5).toISOString() });
+  if (url.pathname === "/v1/auth/signup" && req.method === "POST") {
+    readJson(req).then(({ name }) => {
+      const u = { id: crypto.randomUUID(), email: `invited${users.length}@mock.test`, name: name || "Guest", role: "user", disabled: false };
+      users.push(u);
+      send(res, 200, startSession(u));
+    });
+    return;
+  }
+  const me = signedIn(req);
+  if (!me) {
+    return send(res, 401, { error: { code: "unauthorized", message: "Please sign in." } });
+  }
+  if (url.pathname === "/v1/auth/me") return send(res, 200, { id: me.id, email: me.email, name: me.name, role: me.role });
+  if (url.pathname === "/v1/admin/users") {
+    return send(res, 200, {
+      users: users.map((u) => ({ ...u, created_at: new Date().toISOString(), last_login_at: null, total_usd: 0, today_usd: 0, questions: 0 })),
+      user_daily_cap_usd: 0.05,
+    });
+  }
+  if (url.pathname === "/v1/admin/invites" && req.method === "GET") return send(res, 200, { invites });
+  if (url.pathname === "/v1/admin/invites" && req.method === "POST") {
+    readJson(req).then(({ email }) => {
+      const invite = { id: crypto.randomUUID(), email, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 864e5).toISOString(), status: "pending" };
+      invites.unshift(invite);
+      send(res, 200, { code: crypto.randomUUID().replace(/-/g, ""), invite });
+    });
+    return;
+  }
+  const act = /^\/v1\/admin\/(users|invites)\/([0-9a-f-]{36})\/(disable|enable|revoke)$/.exec(url.pathname);
+  if (act) {
+    if (act[1] === "invites") {
+      const i = invites.find((x) => x.id === act[2]);
+      if (i) i.status = "revoked";
+      return send(res, 200, { revoked: !!i });
+    }
+    const u = users.find((x) => x.id === act[2]);
+    if (u && u.id !== me.id) u.disabled = act[3] === "disable";
+    return send(res, 200, { id: act[2], disabled: !!u?.disabled });
   }
   if (url.pathname === "/v1/budget") {
     return send(res, 200, {
@@ -107,4 +180,4 @@ createServer((req, res) => {
     });
   }
   send(res, 404, { error: { code: "not_found", message: "No such endpoint." } });
-}).listen(PORT, "127.0.0.1", () => console.log(`mock API on http://127.0.0.1:${PORT} (access code: ${CODE})`));
+}).listen(PORT, "127.0.0.1", () => console.log(`mock API on http://127.0.0.1:${PORT} (sign in: admin@mock.test / ${MOCK_PASSWORD})`));

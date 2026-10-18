@@ -1,5 +1,5 @@
 // Frontend + mock API together, for UI work with no backend and no model calls:
-//   npm run dev:mock    -> http://localhost:3000  (access code: "mock")
+//   npm run dev:mock    -> http://localhost:3000  (sign in: admin@mock.test / "mock passphrase 1")
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";

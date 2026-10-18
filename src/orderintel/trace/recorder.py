@@ -34,14 +34,19 @@ class TraceRecorder:
 
     @contextmanager
     def request(
-        self, question: str, session_id: str | None, config_name: str = "api"
+        self,
+        question: str,
+        session_id: str | None,
+        config_name: str = "api",
+        user_id: str | None = None,
     ) -> Iterator[RequestTrace]:
         t = RequestTrace(str(uuid.uuid4()), time.perf_counter())
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO trace.requests (id, kind, config_name, session_id, question, status) "
-                "VALUES (%s, 'request', %s, %s, %s, 'running')",
-                (t.id, config_name, session_id, redact(question)),
+                "INSERT INTO trace.requests "
+                "(id, kind, config_name, session_id, question, status, user_id) "
+                "VALUES (%s, 'request', %s, %s, %s, 'running', %s)",
+                (t.id, config_name, session_id, redact(question), user_id),
             )
         token = CURRENT_REQUEST.set(t.id)
         try:
@@ -93,7 +98,9 @@ class TraceRecorder:
                     [(t.id, i, k, redact_json(p), ms) for i, (k, p, ms) in enumerate(steps, 1)],
                 )
 
-    def sessions(self, config_name: str, limit: int = 50) -> list[dict]:
+    # Every history query is scoped to one owner: a user's id, or NULL for the operator
+    # key (scripts and the fallback UI). One user never sees another user's conversations.
+    def sessions(self, config_name: str, user_id: str | None = None, limit: int = 50) -> list[dict]:
         """Past conversations, newest first, for GET /v1/sessions. A conversation is the
         request rows sharing a session id; its title is its first question."""
         with self._connect() as conn:
@@ -102,10 +109,11 @@ class TraceRecorder:
                           (array_agg(question ORDER BY created_at))[1]
                    FROM trace.requests
                    WHERE kind = 'request' AND config_name = %s AND session_id IS NOT NULL
+                     AND user_id IS NOT DISTINCT FROM %s
                    GROUP BY session_id
                    ORDER BY max(created_at) DESC
                    LIMIT %s""",
-                (config_name, limit),
+                (config_name, user_id, limit),
             ).fetchall()
         return [
             {
@@ -118,15 +126,16 @@ class TraceRecorder:
             for r in rows
         ]
 
-    def session(self, session_id: str, config_name: str) -> list[dict]:
+    def session(self, session_id: str, config_name: str, user_id: str | None = None) -> list[dict]:
         """Every request of one conversation, oldest first, with its stored response."""
         with self._connect() as conn:
             rows = conn.execute(
                 """SELECT id, created_at, question, status, response, error
                    FROM trace.requests
                    WHERE kind = 'request' AND config_name = %s AND session_id = %s
+                     AND user_id IS NOT DISTINCT FROM %s
                    ORDER BY created_at""",
-                (config_name, session_id),
+                (config_name, session_id, user_id),
             ).fetchall()
         return [
             {
@@ -140,16 +149,18 @@ class TraceRecorder:
             for r in rows
         ]
 
-    def last_turn(self, session_id: str, config_name: str) -> tuple[str, dict] | None:
+    def last_turn(
+        self, session_id: str, config_name: str, user_id: str | None = None
+    ) -> tuple[str, dict] | None:
         """The conversation's most recent finished question and response, so a follow-up
         can refer to it. Read from the traces, so it survives an API restart."""
         with self._connect() as conn:
             row = conn.execute(
                 """SELECT question, response FROM trace.requests
                    WHERE kind = 'request' AND config_name = %s AND session_id = %s
-                     AND response IS NOT NULL
+                     AND response IS NOT NULL AND user_id IS NOT DISTINCT FROM %s
                    ORDER BY created_at DESC LIMIT 1""",
-                (config_name, session_id),
+                (config_name, session_id, user_id),
             ).fetchone()
         return (row[0] or "", row[1]) if row else None
 
@@ -161,7 +172,7 @@ class TraceRecorder:
             return None
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT created_at, status, route, latency_ms, response, error "
+                "SELECT created_at, status, route, latency_ms, response, error, user_id "
                 "FROM trace.requests WHERE id = %s AND kind = 'request'",
                 (request_id,),
             ).fetchone()
@@ -185,6 +196,7 @@ class TraceRecorder:
             "billed_cost_usd": float(cost),
             "error": row[5],
             "response": row[4],
+            "user_id": str(row[6]) if row[6] else None,
             "steps": [{"step_no": s[0], "kind": s[1], "payload": s[2], "ms": s[3]} for s in steps],
         }
 

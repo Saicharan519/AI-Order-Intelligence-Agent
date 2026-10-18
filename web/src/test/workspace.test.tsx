@@ -3,7 +3,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Api, ApiResult } from "@/lib/api";
-import type { AskResponse, Budget, Catalog, SessionSummary, SessionTurn } from "@/lib/types";
+import type { AskResponse, Budget, Catalog, SessionSummary, SessionTurn, UserInfo } from "@/lib/types";
+import { router } from "./navigation-mock";
 import catalog from "./fixtures/catalog.json";
 import { Workspace } from "@/components/workspace";
 import investigation from "./fixtures/investigation.json";
@@ -22,25 +23,26 @@ const BUDGET: Budget = {
   remaining_total_usd: 1.8211,
   remaining_today_usd: 0.4,
   llm_enabled: true,
+  you: { today_usd: 0.0012, daily_cap_usd: 0.05 },
 };
-const GOOD = "letmein";
+const PRIYA: UserInfo = { id: "u-1", email: "priya@example.test", name: "Priya Sharma", role: "user" };
 
 type Stored = { session_id: string; turns: SessionTurn[] };
 
 /** A fake API that keeps conversations in memory like the real one keeps them in traces. */
 function fakeApi(
   opts: {
-    local?: boolean;
+    user?: UserInfo | null; // null: not signed in
     answers?: Record<string, ApiResult<AskResponse>>;
     history?: Stored[];
     scopeActive?: boolean;
   } = {},
 ) {
   const ok = <T,>(data: T): ApiResult<T> => ({ ok: true, data });
-  const denied = { ok: false as const, code: "unauthorized", status: 401 };
+  const signedOut = { ok: false as const, code: "unauthorized", status: 401 };
+  const user = opts.user === undefined ? PRIYA : opts.user;
   const store: Stored[] = [...(opts.history ?? [])];
   let clock = Date.now();
-  const allowed = (code: string) => opts.local || code === GOOD;
   const record = (sid: string, question: string, r: ApiResult<AskResponse>) => {
     let c = store.find((x) => x.session_id === sid);
     if (!c) store.push((c = { session_id: sid, turns: [] }));
@@ -53,20 +55,25 @@ function fakeApi(
       error: r.ok ? null : r.code,
     });
   };
+  const notFound = { ok: false as const, code: "not_found", status: 404 };
   const api: Api = {
-    config: vi.fn(async () => ok({ local: !!opts.local })),
+    me: vi.fn(async () => (user ? ok(user) : signedOut)),
+    signIn: vi.fn(async () => signedOut),
+    signUp: vi.fn(async () => signedOut),
+    signOut: vi.fn(async () => ok({ ok: true })),
+    inviteInfo: vi.fn(async () => notFound),
     health: vi.fn(async () => ok({ status: "ok", database: "ok" as const, llm_enabled: true })),
-    budget: vi.fn(async (code: string) => (opts.local || code === GOOD ? ok(BUDGET) : denied)),
-    ask: vi.fn(async (code: string, question: string, sid: string) => {
-      if (!allowed(code)) return denied;
+    budget: vi.fn(async () => (user ? ok(user.role === "admin" ? { ...BUDGET, you: null } : BUDGET) : signedOut)),
+    ask: vi.fn(async (question: string, sid: string) => {
+      if (!user) return signedOut;
       const r = opts.answers?.[question] ?? ok(topCategories as unknown as AskResponse);
       if (r.ok || r.code !== "unauthorized") record(sid, question, r);
       return r;
     }),
-    trace: vi.fn(async () => ({ ok: false as const, code: "not_found", status: 404 })),
+    trace: vi.fn(async () => notFound),
     clearScope: vi.fn(async () => ok({ cleared: true })),
-    sessions: vi.fn(async (code: string) => {
-      if (!allowed(code)) return denied;
+    sessions: vi.fn(async () => {
+      if (!user) return signedOut;
       const list: SessionSummary[] = store
         .map((c) => ({
           session_id: c.session_id,
@@ -78,20 +85,24 @@ function fakeApi(
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       return ok({ sessions: list });
     }),
-    session: vi.fn(async (code: string, sid: string) => {
-      if (!allowed(code)) return denied;
+    session: vi.fn(async (sid: string) => {
+      if (!user) return signedOut;
       const c = store.find((x) => x.session_id === sid);
-      if (!c) return { ok: false as const, code: "not_found", status: 404 };
+      if (!c) return notFound;
       return ok({ session_id: sid, scope_active: !!opts.scopeActive, turns: c.turns });
     }),
-    catalog: vi.fn(async (code: string) => (allowed(code) ? ok(catalog as unknown as Catalog) : denied)),
+    catalog: vi.fn(async () => (user ? ok(catalog as unknown as Catalog) : signedOut)),
+    adminUsers: vi.fn(async () => notFound),
+    adminInvites: vi.fn(async () => notFound),
+    createInvite: vi.fn(async () => notFound),
+    revokeInvite: vi.fn(async () => notFound),
+    setUserDisabled: vi.fn(async () => notFound),
   };
   return api;
 }
 
-async function unlock(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText("Access code"), GOOD);
-  await user.click(screen.getByRole("button", { name: /unlock workspace/i }));
+/** Wait until the signed-in workspace is ready. */
+async function unlock() {
   await screen.findByText(/what do you want to know/i);
 }
 
@@ -100,37 +111,43 @@ async function askQuestion(user: ReturnType<typeof userEvent.setup>, q: string) 
 }
 
 describe("Workspace", () => {
-  it("asks for the access code and explains what it is", async () => {
-    render(<Workspace api={fakeApi()} />);
-    expect(await screen.findByText("Enter your access code")).toBeInTheDocument();
-    expect(screen.getByText("ACCESS_CODE")).toBeInTheDocument();
-    expect(screen.getByLabelText("Access code")).toHaveAttribute("type", "password");
+  it("sends anyone who is not signed in to the sign-in page", async () => {
+    render(<Workspace api={fakeApi({ user: null })} />);
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login"));
+    expect(screen.queryByText(/what do you want to know/i)).not.toBeInTheDocument();
   });
 
-  it("rejects a wrong code with a plain message", async () => {
+  it("shows who is signed in, their own daily budget, and signs out", async () => {
     const user = userEvent.setup();
-    render(<Workspace api={fakeApi()} />);
-    await user.type(await screen.findByLabelText("Access code"), "wrong");
-    await user.click(screen.getByRole("button", { name: /unlock workspace/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("The access code is missing or wrong.");
+    const api = fakeApi();
+    render(<Workspace api={api} />);
+    await unlock();
+    expect(screen.getByText("Priya Sharma")).toBeInTheDocument();
+    expect(screen.getByText("PS")).toBeInTheDocument();
+    expect(screen.getByText("Your budget today")).toBeInTheDocument();
+    expect(screen.getByText("$0.0012 / $0.05")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(api.signOut).toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith("/login");
   });
 
-  it("skips the code screen in local mode", async () => {
-    render(<Workspace api={fakeApi({ local: true })} />);
-    expect(await screen.findByText(/what do you want to know/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Access code")).not.toBeInTheDocument();
-    expect(await screen.findByText("$0.0789 / $1.90")).toBeInTheDocument();
+  it("gives an admin the Admin link and the project's overall budget", async () => {
+    render(<Workspace api={fakeApi({ user: { ...PRIYA, role: "admin" } })} />);
+    await unlock();
+    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
+    expect(screen.getByText("Model budget")).toBeInTheDocument();
   });
 
   it("answers a question with a headline, a chart, a table and evidence", async () => {
     const user = userEvent.setup();
     const api = fakeApi();
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, "Top 5 categories by revenue in 2017");
 
     expect(await screen.findByText(/bed_bath_table led 2017 category revenue/)).toBeInTheDocument();
-    expect(api.ask).toHaveBeenCalledWith(GOOD, "Top 5 categories by revenue in 2017", expect.stringMatching(/^[A-Za-z0-9]{16}$/));
+    expect(api.ask).toHaveBeenCalledWith("Top 5 categories by revenue in 2017", expect.stringMatching(/^[A-Za-z0-9]{16}$/));
     expect(screen.getByRole("img", { name: /bar chart of Revenue by Category/ })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "R$497,970.94" })).toBeInTheDocument();
     expect(screen.getByText("9 numbers traced to data")).toBeInTheDocument();
@@ -147,9 +164,9 @@ describe("Workspace", () => {
     const user = userEvent.setup();
     const api = fakeApi();
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await user.click(screen.getByRole("button", { name: /How is the late-delivery rate trending/ }));
-    expect(api.ask).toHaveBeenCalledWith(GOOD, "How is the late-delivery rate trending?", expect.any(String));
+    expect(api.ask).toHaveBeenCalledWith("How is the late-delivery rate trending?", expect.any(String));
   });
 
   it("shows an investigation report, sets the session scope, and clears it", async () => {
@@ -157,7 +174,7 @@ describe("Workspace", () => {
     const q = "Why was March 2018 so bad for deliveries?";
     const api = fakeApi({ answers: { [q]: { ok: true, data: investigation as unknown as AskResponse } } });
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
 
     expect(await screen.findByText("Verdict: Elevated")).toBeInTheDocument();
@@ -176,17 +193,17 @@ describe("Workspace", () => {
     const q = "Why was March 2018 so bad for deliveries?";
     const api = fakeApi({ answers: { [q]: { ok: true, data: investigation as unknown as AskResponse } } });
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     await user.click(await screen.findByRole("button", { name: /Break down 2018-03 by product category/ }));
-    expect(api.ask).toHaveBeenLastCalledWith(GOOD, "Break down 2018-03 by product category.", expect.any(String));
+    expect(api.ask).toHaveBeenLastCalledWith("Break down 2018-03 by product category.", expect.any(String));
   });
 
   it("shows a long identifier in full in a compact tile, with caveats folded away", async () => {
     const user = userEvent.setup();
     const q = "what is the name of the seller";
     render(<Workspace api={fakeApi({ answers: { [q]: { ok: true, data: sellerLookup as unknown as AskResponse } } })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByTitle("955fee9216a65b617aa5c0531780ce60")).toHaveClass("font-mono");
     const toggle = screen.getByRole("button", { name: /Caveats \(8\)/ });
@@ -200,7 +217,7 @@ describe("Workspace", () => {
     const user = userEvent.setup();
     const q = "What will the weather be?";
     render(<Workspace api={fakeApi({ answers: { [q]: { ok: true, data: refused as unknown as AskResponse } } })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByText("Out of scope")).toBeInTheDocument();
     expect(screen.getByText("That's outside what I can answer")).toBeInTheDocument();
@@ -211,14 +228,14 @@ describe("Workspace", () => {
     const q = "Show me the dataset";
     const api = fakeApi({ answers: { [q]: { ok: true, data: refused as unknown as AskResponse } } });
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByText(/The dataset covers Olist orders/)).toBeInTheDocument(); // the model's reason
     expect(screen.queryByText("I can't help with that request.")).not.toBeInTheDocument();
 
     const first = (catalog as unknown as Catalog).examples[0].questions[0];
     await user.click(screen.getByRole("button", { name: new RegExp(first) }));
-    expect(api.ask).toHaveBeenLastCalledWith(GOOD, first, expect.any(String));
+    expect(api.ask).toHaveBeenLastCalledWith(first, expect.any(String));
 
     await user.click(screen.getAllByRole("button", { name: /Explore the data/ })[0]);
     expect(await screen.findByRole("dialog", { name: "Explore the data" })).toBeInTheDocument();
@@ -231,26 +248,26 @@ describe("Workspace", () => {
       b: { ok: false as const, code: "rate_limited", status: 429 },
     };
     render(<Workspace api={fakeApi({ answers })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, "a");
     expect(await screen.findByText(/spending limit for the language model is reached/)).toBeInTheDocument();
     await askQuestion(user, "b");
     expect(await screen.findByText(/Too many questions in a short time/)).toBeInTheDocument();
   });
 
-  it("returns to the code screen when the code stops working", async () => {
+  it("sends you to sign in when your session has ended", async () => {
     const user = userEvent.setup();
     const answers = { x: { ok: false as const, code: "unauthorized", status: 401 } };
     render(<Workspace api={fakeApi({ answers })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, "x");
-    expect(await screen.findByText("Enter your access code")).toBeInTheDocument();
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login"));
   });
 
   it("lists one conversation for several questions, and New analysis starts another", async () => {
     const user = userEvent.setup();
     render(<Workspace api={fakeApi()} />);
-    await unlock(user);
+    await unlock();
     const nav = screen.getByRole("navigation", { name: "Conversations" });
     await askQuestion(user, "Top 5 categories by revenue in 2017");
     await screen.findByText(/bed_bath_table led 2017 category revenue/);
@@ -284,7 +301,7 @@ describe("Workspace", () => {
       ],
     });
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     const nav = screen.getByRole("navigation", { name: "Conversations" });
     expect(await within(nav).findByText("Previous 7 days")).toBeInTheDocument();
 
@@ -295,7 +312,7 @@ describe("Workspace", () => {
     expect(api.ask).not.toHaveBeenCalled(); // reopening costs nothing
 
     await askQuestion(user, "And in 2018?");
-    expect(api.ask).toHaveBeenLastCalledWith(GOOD, "And in 2018?", "old1"); // continues the same conversation
+    expect(api.ask).toHaveBeenLastCalledWith("And in 2018?", "old1"); // continues the same conversation
   });
 
   it("says when a reopened investigation's scope has expired", async () => {
@@ -303,7 +320,7 @@ describe("Workspace", () => {
     const inv = investigation as unknown as AskResponse;
     const turn = { request_id: inv.request_id, created_at: new Date().toISOString(), question: "Why was March 2018 so bad?", status: "ok", response: inv, error: null };
     render(<Workspace api={fakeApi({ history: [{ session_id: "inv1", turns: [turn] }] })} />);
-    await unlock(user);
+    await unlock();
     await user.click(await within(screen.getByRole("navigation", { name: "Conversations" })).findByRole("button", { name: /Why was March 2018 so bad/ }));
     expect(await screen.findByText(/scope of this conversation has expired/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear scope" })).not.toBeInTheDocument();
@@ -314,7 +331,7 @@ describe("Workspace", () => {
     const inv = investigation as unknown as AskResponse;
     const turn = { request_id: inv.request_id, created_at: new Date().toISOString(), question: "Why was March 2018 so bad?", status: "ok", response: inv, error: null };
     render(<Workspace api={fakeApi({ history: [{ session_id: "inv2", turns: [turn] }], scopeActive: true })} />);
-    await unlock(user);
+    await unlock();
     await user.click(await within(screen.getByRole("navigation", { name: "Conversations" })).findByRole("button", { name: /Why was March 2018 so bad/ }));
     expect(await screen.findByText("Period: 2018-03-01 to 2018-03-31")).toBeInTheDocument();
     expect(screen.getByText(/New questions continue this conversation/)).toBeInTheDocument();
@@ -326,7 +343,7 @@ describe("Data guide", () => {
     const user = userEvent.setup();
     const api = fakeApi();
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await user.click(screen.getByRole("button", { name: /Data guide/ }));
     const guide = await screen.findByRole("dialog", { name: "Explore the data" });
     const f = (catalog as unknown as Catalog).facts;
@@ -336,23 +353,44 @@ describe("Data guide", () => {
     expect(api.ask).not.toHaveBeenCalled(); // opening the guide costs nothing
   });
 
+  it("explains the dataset in sections, with the life of an order as steps", async () => {
+    const user = userEvent.setup();
+    render(<Workspace api={fakeApi()} />);
+    await unlock();
+    await user.click(screen.getByRole("button", { name: /Data guide/ }));
+    const guide = await screen.findByRole("dialog", { name: "Explore the data" });
+    for (const title of [
+      "What Olist is",
+      "The life of one order",
+      "What you can learn from it",
+      "Things to know before you ask",
+      "How the agent answers",
+    ]) {
+      expect(within(guide).getByRole("heading", { name: title })).toBeInTheDocument();
+    }
+    const steps = within(within(guide).getByRole("list", { name: "Order steps" })).getAllByRole("listitem");
+    expect(steps).toHaveLength(5);
+    expect(steps[0]).toHaveTextContent("Customer buys");
+    expect(within(guide).getByText("Delivery:")).toBeInTheDocument(); // labelled list, not a wall of text
+  });
+
   it("asks an example question and closes", async () => {
     const user = userEvent.setup();
     const api = fakeApi();
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await user.click(screen.getByRole("button", { name: /Not sure what to ask/ }));
     const guide = await screen.findByRole("dialog", { name: "Explore the data" });
     const delivery = (catalog as unknown as Catalog).examples.find((e) => e.topic === "Delivery")!;
     await user.click(within(guide).getByRole("button", { name: delivery.questions[1] }));
-    expect(api.ask).toHaveBeenCalledWith(GOOD, delivery.questions[1], expect.any(String));
+    expect(api.ask).toHaveBeenCalledWith(delivery.questions[1], expect.any(String));
     expect(screen.queryByRole("dialog", { name: "Explore the data" })).not.toBeInTheDocument();
   });
 
   it("lists the tables with their columns and searches the definitions", async () => {
     const user = userEvent.setup();
     render(<Workspace api={fakeApi()} />);
-    await unlock(user);
+    await unlock();
     await user.click(screen.getByRole("button", { name: /Data guide/ }));
     const guide = await screen.findByRole("dialog", { name: "Explore the data" });
 
@@ -376,7 +414,7 @@ describe("Answers built in code", () => {
     const q = "SHOW ME THE DATASET";
     const api = fakeApi({ answers: { [q]: { ok: true, data: about as unknown as AskResponse } } });
     render(<Workspace api={api} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByText("About the data")).toBeInTheDocument();
     expect(screen.getByRole("figure", { name: "Orders per month across the data" })).toBeInTheDocument();
@@ -386,7 +424,7 @@ describe("Answers built in code", () => {
       examples: { questions: string[] }[];
     };
     await user.click(screen.getByRole("button", { name: new RegExp(first.examples[0].questions[0]) }));
-    expect(api.ask).toHaveBeenLastCalledWith(GOOD, first.examples[0].questions[0], expect.any(String));
+    expect(api.ask).toHaveBeenLastCalledWith(first.examples[0].questions[0], expect.any(String));
     await user.click(screen.getByRole("button", { name: /Open the full data guide/ }));
     expect(await screen.findByRole("dialog", { name: "Explore the data" })).toBeInTheDocument();
   });
@@ -395,7 +433,7 @@ describe("Answers built in code", () => {
     const user = userEvent.setup();
     const q = "why is the Revenue low in the october 2016?";
     render(<Workspace api={fakeApi({ answers: { [q]: { ok: true, data: partialMonth as unknown as AskResponse } } })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByText(/only partly covered by this data/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /bar chart of Orders by Period/ })).toBeInTheDocument();
@@ -407,7 +445,7 @@ describe("Answers built in code", () => {
     const user = userEvent.setup();
     const q = "Why was 2019 bad?";
     render(<Workspace api={fakeApi({ answers: { [q]: { ok: true, data: outOfRange as unknown as AskResponse } } })} />);
-    await unlock(user);
+    await unlock();
     await askQuestion(user, q);
     expect(await screen.findByText(/There is no data for 2019/)).toBeInTheDocument();
     expect(screen.getByText("The data has nothing for that period or analysis.")).toBeInTheDocument();
@@ -416,7 +454,7 @@ describe("Answers built in code", () => {
   it("guide explains the timeline and the fields that do not exist", async () => {
     const user = userEvent.setup();
     render(<Workspace api={fakeApi()} />);
-    await unlock(user);
+    await unlock();
     await user.click(screen.getByRole("button", { name: /Data guide/ }));
     const guide = await screen.findByRole("dialog", { name: "Explore the data" });
     expect(within(guide).getByRole("figure", { name: "Orders per month across the data" })).toBeInTheDocument();
