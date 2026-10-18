@@ -166,6 +166,16 @@ def _is_date(v) -> bool:
 
 
 RATE_COLUMN_RE = re.compile(r"rate|pct|percent|share", re.I)
+MONEY_COLUMN_RE = re.compile(r"revenue|price|value|freight|payment|gmv|amount|aov|sales", re.I)
+
+
+def chart_measures(columns: list[str], numeric: list[int]) -> list[str]:
+    """One kind of measure per chart: rates, else money, else counts. Mixed scales on one axis
+    flatten the smaller series (rates next to counts in the M9 check; revenue next to order
+    counts in owner testing). The other columns stay in the table."""
+    rates = [i for i in numeric if RATE_COLUMN_RE.search(columns[i])]
+    money = [i for i in numeric if i not in rates and MONEY_COLUMN_RE.search(columns[i])]
+    return [columns[i] for i in (rates or money or numeric)]
 
 
 def choose_components(columns: list[str], rows: list[tuple]) -> list[dict]:
@@ -181,15 +191,14 @@ def choose_components(columns: list[str], rows: list[tuple]) -> list[dict]:
     ]
     table = {"type": "table", "columns": columns, "rows": [list(r) for r in rows]}
     if all(_is_date(v) for v in first) and numeric_cols:
-        # Rates and counts have different scales: when both are present, the line chart shows
-        # the rates only (the counts stay in the table). Found in the M9 end-to-end check.
-        rates = [i for i in numeric_cols if RATE_COLUMN_RE.search(columns[i])]
+        # A line needs enough points to show a trend; with three or fewer, bars do not suggest
+        # a curve between them.
         return [
             {
                 "type": "chart",
-                "kind": "line",
+                "kind": "line" if len(rows) > 3 else "bar",
                 "x": columns[0],
-                "y": [columns[i] for i in (rates or numeric_cols)],
+                "y": chart_measures(columns, numeric_cols),
             },
             table,
         ]

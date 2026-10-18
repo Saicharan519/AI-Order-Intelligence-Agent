@@ -2,8 +2,11 @@
 
 A, B, C: one SQL-generation call; the SQL runs as oi_eval (read-only, timeout, row cap)
          WITHOUT the validator, because these configurations measure generation alone.
-D:       the product path: validator, guarded executor (oi_agent), and at most two
-         repairs in which the model sees why its SQL was rejected (FR-06).
+D:       the product path: validator, business rules (guard/business_rules.py: revenue
+         counts sales only), guarded executor (oi_agent), and at most two repairs in which
+         the model sees why its SQL was rejected (FR-06). A business-rule violation that
+         survives the last repair still runs, with a warning, rather than withholding the
+         answer.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from orderintel.agent.sqlgen import (
 )
 from orderintel.db.connect import connect_eval
 from orderintel.db.executor import ExecutionError, execute
+from orderintel.guard.business_rules import violations as rule_violations
 from orderintel.guard.validator import ROW_CAP, validate
 from orderintel.llm.client import LLMClient
 
@@ -32,7 +36,7 @@ EVAL_TIMEOUT_S = 10
 @dataclass
 class Attempt:
     sql: str | None
-    stage: str  # parse_error | declined | rejected | exec_error | ok
+    stage: str  # parse_error | declined | rejected | rule | exec_error | ok
     feedback: str = ""
 
 
@@ -48,6 +52,7 @@ class SQLRun:
     error: str = ""
     truncated: bool = False
     attempts: list[Attempt] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     latency_ms: int = 0
     tokens_in: int = 0
@@ -106,7 +111,8 @@ def run_question(client: LLMClient, config: str, question: str, label: str = "ev
     messages = build_messages(config, question)
     attempts_allowed = 1 + (MAX_REPAIRS if config == "D" else 0)
 
-    for _ in range(attempts_allowed):
+    for attempt_no in range(attempts_allowed):
+        last = attempt_no == attempts_allowed - 1
         reply = _call(client, run, messages, config_name)
         sql, assumptions, parse_error = parse_reply(reply)
         run.sql, run.assumptions = sql, assumptions
@@ -131,11 +137,21 @@ def run_question(client: LLMClient, config: str, question: str, label: str = "ev
             return run
         else:
             v = validate(sql)
+            broken = rule_violations(v.sql) if v.ok else []
             if not v.ok:
                 feedback = v.feedback()
                 run.attempts.append(Attempt(sql, "rejected", feedback))
                 run.status, run.error = "rejected", feedback
+            elif broken and not last:
+                feedback = " ".join(broken)
+                run.attempts.append(Attempt(v.sql, "rule", feedback))
+                run.status, run.error = "rejected", feedback
             else:
+                if broken:  # the last repair still breaks a business rule: run it, but say so
+                    run.warnings.append(
+                        "Revenue in this answer may include canceled or unavailable orders: "
+                        "the query was not limited to sales after repairs."
+                    )
                 try:
                     res = execute(v.validated)
                     run.sql = v.sql

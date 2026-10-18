@@ -17,10 +17,10 @@ from orderintel.config import PROJECT_ROOT
 from orderintel.evaluation.compare import normalise_value
 from orderintel.llm.client import LLMClient
 
-ANSWER_VERSION = "answer-v1"
+ANSWER_VERSION = "answer-v2"  # v2: checks the question's premise; v1 is kept for the M5 runs
 ANSWER_MAX_TOKENS = 600
 MAX_ROWS_TO_MODEL = 50
-ANSWER_FILE = PROJECT_ROOT / "prompts" / "answer_v1.md"
+ANSWER_FILE = PROJECT_ROOT / "prompts" / "answer_v2.md"
 
 
 @dataclass

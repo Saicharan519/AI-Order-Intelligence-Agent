@@ -71,6 +71,7 @@ STEPS = [
                count(DISTINCT o.order_id) FILTER (WHERE o.review_score = 1) AS one_star
         FROM orders o JOIN order_items i ON i.order_id = o.order_id
         WHERE o.review_score IS NOT NULL AND o.purchase_month = :p_month
+          AND o.purchase_month >= :w_start AND o.purchase_month < :w_end
           AND (CAST(:state AS TEXT) IS NULL OR o.customer_state = :state)
         GROUP BY i.seller_id
         HAVING count(DISTINCT o.order_id) >= {MIN_GROUP}

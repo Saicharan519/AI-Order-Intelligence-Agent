@@ -1,0 +1,39 @@
+{
+  "request_id": "00000000-0000-0000-0000-000000000000",
+  "route": "refuse",
+  "status": "refused",
+  "headline": "This question is outside what the order data can answer.",
+  "components": [],
+  "scope": {
+    "period": null,
+    "population": null,
+    "filters": [],
+    "definitions": [],
+    "assumptions": [],
+    "n": 0,
+    "truncated": false,
+    "partial_period_warnings": []
+  },
+  "evidence": [],
+  "notes": [
+    "The dataset covers Olist orders, deliveries, payments, reviews, products and sellers from 2016 to 2018."
+  ],
+  "caveats": [],
+  "warnings": [],
+  "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+  },
+  "followups": [],
+  "usage": {
+    "llm_calls": 1,
+    "cached_calls": 0,
+    "tokens_in": 900,
+    "tokens_cache_hit": 0,
+    "tokens_out": 40,
+    "cost_usd": 0.00012,
+    "latency_ms": 1300
+  }
+}

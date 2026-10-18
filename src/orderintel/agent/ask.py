@@ -1,4 +1,10 @@
-"""Ask mode: router -> SQL (validator, executor, repairs) -> answer writer -> checks.
+"""Ask mode: pre-check -> router -> guards -> SQL (validator, executor, repairs) -> answer.
+
+The pre-check (agent/precheck.py) answers questions about the data itself, about periods
+outside it, and why-questions about partially covered months in code, before any model call.
+After the router, a topic guard (agent/guards.py) corrects a playbook whose topic does not
+match the question. Questions that ask for fields the data lacks carry a hint, and follow-ups
+to a previous answer carry that answer as context.
 
 Nodes are plain functions over a typed state, so each is testable without LangGraph; the
 graph only wires them together (technical design section 3, Q-05: LangGraph 1.2.15,
@@ -8,16 +14,25 @@ StateGraph with conditional edges).
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from orderintel.agent.answer import AnswerText, write_answer
 from orderintel.agent.grounding import causal_findings, check_grounding, scope_texts
+from orderintel.agent.guards import (
+    guard_playbook,
+    looks_like_followup,
+    missing_field_hint,
+    missing_field_notes,
+)
 from orderintel.agent.narrate import narrate
 from orderintel.agent.pipeline import SQLRun, run_question
+from orderintel.agent.precheck import Precheck, coverage, detect, respond
 from orderintel.agent.router import RouterDecision, route
 from orderintel.agent.scope import build_scope, choose_components
 from orderintel.agent.session import STORE, SessionScope, SessionStore, scope_presence_warnings
@@ -36,12 +51,52 @@ from orderintel.guard.validator import RULES
 from orderintel.llm.client import LLMClient, LLMResult
 from orderintel.playbooks import PLAYBOOKS
 from orderintel.playbooks.base import PlaybookParams
+from orderintel.playbooks.checks import inconsistencies
 
 EVIDENCE_PREVIEW_ROWS = 10
+PREVIOUS_ROWS = 5
+log = logging.getLogger("orderintel.ask")
+
+
+@dataclass
+class PreviousTurn:
+    """The conversation's previous question and its stored response (read from the traces
+    by the API), used as context when a question refers back to it."""
+
+    question: str
+    response: dict
+
+    def context(self) -> str | None:
+        r = self.response
+        if r.get("route") != "answer" or r.get("status") != "ok":
+            return None
+        sql = next((e.get("sql") for e in r.get("evidence") or [] if e.get("sql")), None)
+        if not sql:
+            return None
+        table = next((c for c in r.get("components") or [] if c.get("type") == "table"), None)
+        card = next(
+            (c for c in r.get("components") or [] if c.get("variant") == "answer_card"), None
+        )
+        if table:
+            result = f"columns {table['columns']}; first rows {table['rows'][:PREVIOUS_ROWS]}"
+        elif card:
+            result = f"columns {card['columns']}; row {card['row']}"
+        else:
+            result = "no rows"
+        return (
+            f"Previous question in this conversation: {self.question}\n"
+            f"Its SQL: {sql}\n"
+            f"Its result: {result}\n"
+            "Use this only to resolve references in the new question (such as 'these' or "
+            "'the same'); otherwise ignore it."
+        )
 
 
 class AskState(TypedDict, total=False):
     question: str
+    precheck: Precheck | None
+    previous: PreviousTurn | None
+    guard_note: str
     request_id: str
     config_name: str
     session_id: str | None
@@ -60,6 +115,20 @@ def month_end(first_day: dt.date) -> dt.date:
 
 def _with_scope(question: str, scope: SessionScope | None) -> str:
     return question if scope is None else f"{question}\n\n{scope.context_for_sql()}"
+
+
+def _model_question(state: AskState) -> str:
+    """The question as the router and SQL writer see it: with the missing-field hint, the
+    previous answer when the question refers to it, and an inherited investigation scope."""
+    q = state["question"]
+    hint = missing_field_hint(q)
+    if hint:
+        q = f"{q}\n\n{hint}"
+    prev = state.get("previous")
+    context = prev.context() if prev and looks_like_followup(state["question"]) else None
+    if context:
+        q = f"{q}\n\n{context}"
+    return _with_scope(q, state.get("inherited"))
 
 
 def _inherited_filters(scope: SessionScope | None) -> list[str]:
@@ -98,14 +167,33 @@ def _evidence(run: SQLRun) -> Evidence:
 
 # ---------------- nodes ----------------
 def make_nodes(client: LLMClient, store: SessionStore = STORE):
+    def precheck_node(state: AskState) -> dict:
+        try:
+            pre = detect(state["question"], coverage())
+        except Exception as e:  # noqa: BLE001  the pre-check must never block a question
+            log.warning("pre-check skipped: %s", type(e).__name__)
+            pre = None
+        if pre is None:
+            return {"precheck": None}
+        resp = respond(pre, state["request_id"])
+        resp.usage = _usage(state)
+        return {"precheck": pre, "response": resp}
+
     def route_node(state: AskState) -> dict:
-        question = _with_scope(state["question"], state.get("inherited"))
-        decision, result = route(client, question, state["config_name"])
-        return {"decision": decision, "llm_results": [*state.get("llm_results", []), result]}
+        decision, result = route(client, _model_question(state), state["config_name"])
+        update: dict = {"llm_results": [*state.get("llm_results", []), result]}
+        if decision.route == "investigate":
+            g = guard_playbook(state["question"], decision.playbook)
+            if g.playbook is None:
+                decision = decision.model_copy(update={"route": "answer", "playbook": None})
+            elif g.playbook != decision.playbook:
+                decision = decision.model_copy(update={"playbook": g.playbook})
+            update["guard_note"] = g.note
+        update["decision"] = decision
+        return update
 
     def sql_node(state: AskState) -> dict:
-        question = _with_scope(state["question"], state.get("inherited"))
-        run = run_question(client, "D", question, label=state["config_name"])
+        run = run_question(client, "D", _model_question(state), label=state["config_name"])
         return {"sqlrun": run}
 
     def answer_node(state: AskState) -> dict:
@@ -162,6 +250,7 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
                 + ", ".join(causal)
                 + "); the data shows associations only."
             )
+        warnings += run.warnings  # business rules that survived the repairs
         inherited = state.get("inherited")
         if inherited is not None:
             warnings += scope_presence_warnings(run.sql or "", inherited)
@@ -185,7 +274,16 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
             ),
             evidence=[_evidence(run)],
             notes=answer.notes,
-            caveats=answer.caveats + scope.partial_period_warnings,
+            caveats=list(
+                dict.fromkeys(
+                    [
+                        *([state["guard_note"]] if state.get("guard_note") else []),
+                        *missing_field_notes(question),
+                        *answer.caveats,
+                        *scope.partial_period_warnings,
+                    ]
+                )
+            ),
             warnings=warnings,
             grounding=Grounding(
                 numbers_checked=grounding.numbers_checked,
@@ -201,8 +299,11 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
 
     def sql_failed_node(state: AskState) -> dict:
         run = state["sqlrun"]
+        missing = missing_field_notes(state["question"])
         if run.status == "declined":
-            headline = "This question cannot be answered from the order data."
+            headline = (
+                missing[0] if missing else "This question cannot be answered from the order data."
+            )
             status, route_name = "refused", "refuse"
         else:
             headline = (
@@ -216,7 +317,7 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
             status=status,
             headline=headline,
             evidence=[_evidence(run)],
-            caveats=run.assumptions if run.status == "declined" else [],
+            notes=missing + (run.assumptions if run.status == "declined" else []),
             warnings=[run.error] if run.error else [],
         )
         resp.usage = _usage(state)
@@ -240,8 +341,8 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
             request_id=state["request_id"],
             route="refuse",
             status="refused",
-            headline="I can't help with that request.",
-            notes=[d.reason] if d.reason else [],
+            headline="That question is outside what the order data can answer.",
+            notes=[*missing_field_notes(state["question"]), *([d.reason] if d.reason else [])],
         )
         resp.usage = _usage(state)
         return {"response": resp}
@@ -252,12 +353,22 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
         module = PLAYBOOKS[d.playbook]
         pb_run, f = module.run(params)
         findings = f.as_dict()
+        contradictions = inconsistencies(findings)
         narration, check, narr_results, regenerated = narrate(
             client, state["question"], findings, state["config_name"]
         )
         results = [*state.get("llm_results", []), *narr_results]
 
         warnings = []
+        if state.get("guard_note"):
+            warnings.append(state["guard_note"])
+        if contradictions:
+            log.warning("playbook findings contradict each other: %s", contradictions)
+            warnings.append(
+                "An internal check found findings that contradict each other ("
+                + "; ".join(contradictions)
+                + "); do not rely on this verdict."
+            )
         if narration.parse_error:
             warnings.append("The narration could not be generated; showing the findings only.")
         if check.untraced:
@@ -360,6 +471,7 @@ def make_nodes(client: LLMClient, store: SessionStore = STORE):
         return {"llm_results": results, "response": resp}
 
     return {
+        "precheck": precheck_node,
         "route": route_node,
         "sql": sql_node,
         "answer": answer_node,
@@ -375,7 +487,12 @@ def build_graph(client: LLMClient, store: SessionStore = STORE):
     g = StateGraph(AskState)
     for name, fn in nodes.items():
         g.add_node(name, fn)
-    g.add_edge(START, "route")
+    g.add_edge(START, "precheck")
+    g.add_conditional_edges(
+        "precheck",
+        lambda s: "done" if s.get("precheck") else "route",
+        {"done": END, "route": "route"},
+    )
     g.add_conditional_edges(
         "route",
         lambda s: s["decision"].route,
@@ -399,6 +516,7 @@ def ask(
     session_id: str | None = None,
     store: SessionStore = STORE,
     request_id: str | None = None,
+    previous: PreviousTurn | None = None,
 ) -> AskResponse:
     app = graph or build_graph(client, store)
     state: dict[str, Any] = {
@@ -407,6 +525,7 @@ def ask(
         "config_name": config_name,
         "session_id": session_id,
         "inherited": store.get(session_id),
+        "previous": previous,
         "started": time.perf_counter(),
         "llm_results": [],
     }

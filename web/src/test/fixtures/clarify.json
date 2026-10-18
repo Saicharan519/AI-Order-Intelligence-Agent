@@ -1,0 +1,39 @@
+{
+  "request_id": "00000000-0000-0000-0000-000000000000",
+  "route": "clarify",
+  "status": "clarify",
+  "headline": "Which measure do you mean by \"best\"?",
+  "components": [],
+  "scope": {
+    "period": null,
+    "population": null,
+    "filters": [],
+    "definitions": [],
+    "assumptions": [],
+    "n": 0,
+    "truncated": false,
+    "partial_period_warnings": []
+  },
+  "evidence": [],
+  "notes": [
+    "Best by revenue, by number of orders, or by average review score?"
+  ],
+  "caveats": [],
+  "warnings": [],
+  "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+  },
+  "followups": [],
+  "usage": {
+    "llm_calls": 1,
+    "cached_calls": 0,
+    "tokens_in": 900,
+    "tokens_cache_hit": 0,
+    "tokens_out": 40,
+    "cost_usd": 0.00012,
+    "latency_ms": 1300
+  }
+}

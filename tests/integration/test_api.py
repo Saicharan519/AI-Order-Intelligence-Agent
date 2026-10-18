@@ -147,6 +147,9 @@ def test_health_needs_no_code_and_reveals_nothing():
         ("get", "/v1/budget"),
         ("get", "/v1/requests/x"),
         ("post", "/v1/sessions/s1/scope/clear"),
+        ("get", "/v1/sessions"),
+        ("get", "/v1/sessions/s1"),
+        ("get", "/v1/catalog"),
     ],
 )
 def test_protected_endpoints_need_the_code(method, path):
@@ -298,3 +301,110 @@ def test_admin_summary_query_runs():
     assert 0 <= out["rejection_rate"] <= 1
     assert any(r["route"] == "answer" for r in out["routes"])
     json.dumps(out)  # serialisable for the admin script
+
+
+# ---------- conversation history ----------
+
+
+def test_conversations_are_listed_and_reopened_without_model_calls():
+    c = make_client()
+    q1, q2 = "How many orders were canceled?", "And how many were canceled in 2017?"
+    first = c.post("/v1/ask", json={"question": q1, "session_id": "hist-a"}, headers=H).json()
+    c.post("/v1/ask", json={"question": q2, "session_id": "hist-a"}, headers=H)
+    c.post("/v1/ask", json={"question": q1, "session_id": "hist-b"}, headers=H)
+
+    listed = c.get("/v1/sessions", headers=H).json()["sessions"]
+    mine = {s["session_id"]: s for s in listed if s["session_id"] in ("hist-a", "hist-b")}
+    assert mine["hist-a"]["questions"] == 2 and mine["hist-a"]["title"] == q1
+    assert mine["hist-b"]["questions"] == 1
+    order = [s["session_id"] for s in listed]
+    assert order.index("hist-b") < order.index("hist-a")  # newest first
+
+    with connect_owner() as conn:
+        calls_before = conn.execute("SELECT count(*) FROM trace.requests").fetchone()[0]
+    convo = c.get("/v1/sessions/hist-a", headers=H).json()
+    with connect_owner() as conn:
+        calls_after = conn.execute("SELECT count(*) FROM trace.requests").fetchone()[0]
+    assert calls_after == calls_before  # reopening reads stored rows; nothing is called or written
+    assert [t["question"] for t in convo["turns"]] == [q1, q2]
+    assert convo["turns"][0]["request_id"] == first["request_id"]
+    assert convo["turns"][0]["response"]["headline"] == first["headline"]
+    assert convo["scope_active"] is False
+
+
+def test_history_only_lists_this_deployments_conversations():
+    """Evaluation runs and other configurations never appear in the product's history."""
+    c = make_client()
+    c.post("/v1/ask", json={"question": "How many orders were canceled?", "session_id": "hist-c"}, headers=H)
+    other = create_app(
+        settings(),
+        client=None,
+        recorder=TraceRecorder(settings()),
+        store=SessionStore(),
+        trace_config="test:api-other",
+    )
+    oc = TestClient(other, raise_server_exceptions=False)
+    assert all(s["session_id"] != "hist-c" for s in oc.get("/v1/sessions", headers=H).json()["sessions"])
+    assert oc.get("/v1/sessions/hist-c", headers=H).status_code == 404
+
+
+def test_unknown_or_invalid_conversation():
+    c = make_client()
+    assert c.get("/v1/sessions/never-used-xyz", headers=H).status_code == 404
+    assert c.get("/v1/sessions/bad id", headers=H).status_code == 422
+
+
+def test_follow_up_sees_the_previous_answer_from_the_saved_history():
+    """The previous answer is read from the traces, so it works after a restart too."""
+    fake = RoleFake(
+        ROUTE_ANSWER,
+        CANCELED_SQL,
+        {"headline": "625 orders were canceled.", "notes": [], "caveats": []},
+    )
+    make_client(transport=fake).post(
+        "/v1/ask", json={"question": "How many orders were canceled?", "session_id": "fu-1"},
+        headers=H,
+    )  # fmt: skip
+    fresh = make_client(transport=fake)  # a new app: nothing in memory
+    fresh.post(
+        "/v1/ask", json={"question": "And what about these in 2017?", "session_id": "fu-1"},
+        headers=H,
+    )  # fmt: skip
+    last_router_input = [m for r, m in zip(fake.calls, fake.messages, strict=True) if r == "router"][-1]
+    text = last_router_input[-1]["content"]
+    assert "Previous question in this conversation: How many orders were canceled?" in text
+    assert "order_status = 'canceled'" in text
+
+
+# ---------- data catalog ("Explore the data") ----------
+
+
+def test_catalog_describes_the_loaded_data_without_model_calls():
+    with connect_owner() as conn:
+        before = conn.execute("SELECT count(*) FROM trace.requests").fetchone()[0]
+    body = make_client().get("/v1/catalog", headers=H).json()
+    with connect_owner() as conn:
+        after = conn.execute("SELECT count(*) FROM trace.requests").fetchone()[0]
+        orders, sellers = conn.execute(
+            "SELECT (SELECT count(*) FROM analytics.orders), (SELECT count(*) FROM analytics.sellers)"
+        ).fetchone()
+    assert after == before  # no model call, nothing traced or billed
+    f = body["facts"]
+    assert f["orders"] == orders and f["sellers"] == sellers  # numbers come from the data
+    assert f["first_month"] <= f["analysis_window"]["start"] <= f["analysis_window"]["end"]
+    assert {v["name"] for v in body["views"]} == {
+        "orders", "order_items", "payments", "reviews", "sellers", "data_coverage"
+    }
+    orders_view = next(v for v in body["views"] if v["name"] == "orders")
+    assert "is_late" in orders_view["columns"]
+    terms = {d["term"] for d in body["definitions"]}
+    assert {"Late", "Revenue", "Delivered order"} <= terms
+    assert body["examples"] and all(e["questions"] for e in body["examples"])
+    assert body["limits"]
+
+
+def test_catalog_reveals_no_secrets_or_internals():
+    text = json.dumps(make_client().get("/v1/catalog", headers=H).json())
+    assert secret_names_in(text) == []
+    for internal in ("raw.", "trace.", "oi_agent", "prompt", "password"):
+        assert internal not in text.lower()

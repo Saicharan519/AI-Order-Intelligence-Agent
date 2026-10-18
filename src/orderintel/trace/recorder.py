@@ -93,6 +93,66 @@ class TraceRecorder:
                     [(t.id, i, k, redact_json(p), ms) for i, (k, p, ms) in enumerate(steps, 1)],
                 )
 
+    def sessions(self, config_name: str, limit: int = 50) -> list[dict]:
+        """Past conversations, newest first, for GET /v1/sessions. A conversation is the
+        request rows sharing a session id; its title is its first question."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT session_id, min(created_at), max(created_at), count(*),
+                          (array_agg(question ORDER BY created_at))[1]
+                   FROM trace.requests
+                   WHERE kind = 'request' AND config_name = %s AND session_id IS NOT NULL
+                   GROUP BY session_id
+                   ORDER BY max(created_at) DESC
+                   LIMIT %s""",
+                (config_name, limit),
+            ).fetchall()
+        return [
+            {
+                "session_id": r[0],
+                "started_at": r[1].isoformat(),
+                "updated_at": r[2].isoformat(),
+                "questions": r[3],
+                "title": r[4] or "",
+            }
+            for r in rows
+        ]
+
+    def session(self, session_id: str, config_name: str) -> list[dict]:
+        """Every request of one conversation, oldest first, with its stored response."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT id, created_at, question, status, response, error
+                   FROM trace.requests
+                   WHERE kind = 'request' AND config_name = %s AND session_id = %s
+                   ORDER BY created_at""",
+                (config_name, session_id),
+            ).fetchall()
+        return [
+            {
+                "request_id": str(r[0]),
+                "created_at": r[1].isoformat(),
+                "question": r[2] or "",
+                "status": r[3],
+                "response": r[4],
+                "error": r[5],
+            }
+            for r in rows
+        ]
+
+    def last_turn(self, session_id: str, config_name: str) -> tuple[str, dict] | None:
+        """The conversation's most recent finished question and response, so a follow-up
+        can refer to it. Read from the traces, so it survives an API restart."""
+        with self._connect() as conn:
+            row = conn.execute(
+                """SELECT question, response FROM trace.requests
+                   WHERE kind = 'request' AND config_name = %s AND session_id = %s
+                     AND response IS NOT NULL
+                   ORDER BY created_at DESC LIMIT 1""",
+                (config_name, session_id),
+            ).fetchone()
+        return (row[0] or "", row[1]) if row else None
+
     def get(self, request_id: str) -> dict | None:
         """The stored response and its steps, for GET /v1/requests/{id}."""
         try:

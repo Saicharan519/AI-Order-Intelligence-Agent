@@ -1,0 +1,157 @@
+{
+  "notes": [
+    "The remaining top five are ea8482cd71df3c1969d7b9473ff13abc (805 orders), 8b321bb669392f5163d04c59e235e066 (786), and da8622b14eb17ae2831f4ac5b9dab84a (775).",
+    "The top seller's order count is roughly 40% higher than the fifth-place seller's."
+  ],
+  "route": "answer",
+  "scope": {
+    "n": 5,
+    "period": {
+      "end": "2018-10-17",
+      "start": "2018-01-01",
+      "source": "sql"
+    },
+    "filters": [],
+    "truncated": false,
+    "population": null,
+    "assumptions": [
+      "\"Orders\" means distinct orders containing at least one item from the seller, counted via order_items.",
+      "2018 means purchase dates from 2018-01-01 to 2018-12-31; the analysis window only covers January to August 2018, but the question asks for the calendar year 2018 and totals use all data in the requested period.",
+      "No minimum-order eligibility filter was applied because the question asks for the top sellers by order count, not a ranking with an eligibility threshold."
+    ],
+    "definitions": [],
+    "partial_period_warnings": [
+      "2018-09 is a partial month (16 orders)",
+      "2018-10 is a partial month (4 orders)"
+    ]
+  },
+  "usage": {
+    "cost_usd": 0.0004582,
+    "llm_calls": 3,
+    "tokens_in": 3410,
+    "latency_ms": 5155,
+    "tokens_out": 507,
+    "cached_calls": 0,
+    "tokens_cache_hit": 2432
+  },
+  "status": "ok",
+  "caveats": [
+    "The analysis window only covers January through October 17, 2018, so the 2018 totals are incomplete; September and October are partial months (16 and 4 orders respectively).",
+    "Orders are counted as distinct orders containing at least one item from the seller, via order_items.",
+    "2018-09 is a partial month (16 orders)",
+    "2018-10 is a partial month (4 orders)"
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "ms": 1453,
+      "sql": "SELECT seller_id, COUNT(DISTINCT order_id) AS orders_count FROM analytics.order_items WHERE purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY seller_id ORDER BY orders_count DESC, seller_id LIMIT 5",
+      "kind": "sql",
+      "params": {},
+      "attempts": [
+        {
+          "sql": "SELECT seller_id, COUNT(DISTINCT order_id) AS orders_count FROM analytics.order_items WHERE purchase_date >= CAST('2018-01-01' AS DATE) AND purchase_date < CAST('2019-01-01' AS DATE) GROUP BY seller_id ORDER BY orders_count DESC, seller_id LIMIT 5",
+          "stage": "ok",
+          "feedback": ""
+        }
+      ],
+      "row_count": 5,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          "955fee9216a65b617aa5c0531780ce60",
+          1105.0
+        ],
+        [
+          "6560211a19b47992c3666cc44a7e94c0",
+          999.0
+        ],
+        [
+          "ea8482cd71df3c1969d7b9473ff13abc",
+          805.0
+        ],
+        [
+          "8b321bb669392f5163d04c59e235e066",
+          786.0
+        ],
+        [
+          "da8622b14eb17ae2831f4ac5b9dab84a",
+          775.0
+        ]
+      ]
+    }
+  ],
+  "headline": "The top seller by orders in 2018 was seller 955fee9216a65b617aa5c0531780ce60 with 1,105 orders, followed by 6560211a19b47992c3666cc44a7e94c0 with 999.",
+  "warnings": [],
+  "followups": [
+    {
+      "label": "What was the total revenue for these top 5 sellers in 2018?",
+      "question": "What was the total revenue for these top 5 sellers in 2018?",
+      "inherits_scope": false
+    },
+    {
+      "label": "How did the top sellers' order counts change month over month in 2018?",
+      "question": "How did the top sellers' order counts change month over month in 2018?",
+      "inherits_scope": false
+    }
+  ],
+  "grounding": {
+    "untraced": [],
+    "regenerated": false,
+    "causal_terms": [],
+    "numbers_checked": 12
+  },
+  "components": [
+    {
+      "rows": [
+        [
+          "955fee9216a65b617aa5c0531780ce60",
+          1105
+        ],
+        [
+          "6560211a19b47992c3666cc44a7e94c0",
+          999
+        ],
+        [
+          "ea8482cd71df3c1969d7b9473ff13abc",
+          805
+        ],
+        [
+          "8b321bb669392f5163d04c59e235e066",
+          786
+        ],
+        [
+          "da8622b14eb17ae2831f4ac5b9dab84a",
+          775
+        ]
+      ],
+      "type": "table",
+      "columns": [
+        "seller_id",
+        "orders_count"
+      ]
+    },
+    {
+      "x": "seller_id",
+      "y": [
+        "orders_count"
+      ],
+      "kind": "bar",
+      "type": "chart"
+    }
+  ],
+  "request_id": "0750d731-4f9d-4f45-9499-97375f4795f8"
+}

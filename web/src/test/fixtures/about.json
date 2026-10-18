@@ -1,0 +1,461 @@
+{
+  "request_id": "938f2df3-cb3e-494d-9ddf-a827f18aaad3",
+  "route": "about",
+  "status": "ok",
+  "headline": "This is the Olist Brazilian e-commerce orders data: 99,441 orders from Sep 2016 to Oct 2018, with their items, payments, delivery dates and review scores.",
+  "components": [
+    {
+      "type": "about",
+      "dataset": {
+        "name": "Olist Brazilian e-commerce orders",
+        "description": "Orders placed on Olist, a Brazilian online marketplace that connects small sellers to customers. Each order has its items, payments, delivery dates and customer review score.",
+        "source": "Public Olist dataset (Kaggle, CC BY-NC-SA 4.0)"
+      },
+      "facts": {
+        "orders": 99441,
+        "delivered_orders": 96470,
+        "customers": 96096,
+        "customer_states": 27,
+        "sellers": 3095,
+        "products": 32951,
+        "categories": 74,
+        "first_month": "2016-09",
+        "last_month": "2018-10",
+        "analysis_window": {
+          "start": "2017-01",
+          "end": "2018-08"
+        },
+        "partial_months": [
+          {
+            "month": "2016-09",
+            "orders": 4
+          },
+          {
+            "month": "2016-10",
+            "orders": 324
+          },
+          {
+            "month": "2016-11",
+            "orders": 0
+          },
+          {
+            "month": "2016-12",
+            "orders": 1
+          },
+          {
+            "month": "2018-09",
+            "orders": 16
+          },
+          {
+            "month": "2018-10",
+            "orders": 4
+          }
+        ],
+        "months": [
+          {
+            "month": "2016-09",
+            "orders": 4,
+            "partial": true,
+            "in_window": false
+          },
+          {
+            "month": "2016-10",
+            "orders": 324,
+            "partial": true,
+            "in_window": false
+          },
+          {
+            "month": "2016-11",
+            "orders": 0,
+            "partial": true,
+            "in_window": false
+          },
+          {
+            "month": "2016-12",
+            "orders": 1,
+            "partial": true,
+            "in_window": false
+          },
+          {
+            "month": "2017-01",
+            "orders": 800,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-02",
+            "orders": 1780,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-03",
+            "orders": 2682,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-04",
+            "orders": 2404,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-05",
+            "orders": 3700,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-06",
+            "orders": 3245,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-07",
+            "orders": 4026,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-08",
+            "orders": 4331,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-09",
+            "orders": 4285,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-10",
+            "orders": 4631,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-11",
+            "orders": 7544,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2017-12",
+            "orders": 5673,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-01",
+            "orders": 7269,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-02",
+            "orders": 6728,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-03",
+            "orders": 7211,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-04",
+            "orders": 6939,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-05",
+            "orders": 6873,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-06",
+            "orders": 6167,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-07",
+            "orders": 6292,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-08",
+            "orders": 6512,
+            "partial": false,
+            "in_window": true
+          },
+          {
+            "month": "2018-09",
+            "orders": 16,
+            "partial": true,
+            "in_window": false
+          },
+          {
+            "month": "2018-10",
+            "orders": 4,
+            "partial": true,
+            "in_window": false
+          }
+        ]
+      },
+      "views": [
+        {
+          "name": "data_coverage",
+          "description": "One row per month: number of orders, whether the month is partial, and whether it is inside the analysis window."
+        },
+        {
+          "name": "order_items",
+          "description": "One row per item in an order: product, category, seller, price and freight."
+        },
+        {
+          "name": "orders",
+          "description": "One row per order: customer, status, purchase and delivery dates, lateness, delivery stages, revenue, freight, payment total and review score."
+        },
+        {
+          "name": "payments",
+          "description": "One row per order: payment total, number of payments, installments and payment types."
+        },
+        {
+          "name": "reviews",
+          "description": "One row per order: the latest review score and whether it has a comment (the comment text itself is not available)."
+        },
+        {
+          "name": "sellers",
+          "description": "One row per seller: seller id, city and state (no seller names)."
+        }
+      ],
+      "examples": [
+        {
+          "topic": "Sales",
+          "questions": [
+            "Top 5 categories by revenue in 2017",
+            "What was the monthly revenue in 2018?",
+            "What is the average order value by payment type?"
+          ]
+        },
+        {
+          "topic": "Delivery",
+          "questions": [
+            "How is the late-delivery rate trending?",
+            "Which states have the highest late-delivery rate?",
+            "Why was March 2018 so bad for deliveries?"
+          ]
+        },
+        {
+          "topic": "Customers",
+          "questions": [
+            "How many customers placed more than one order?",
+            "Which 5 states have the most customers?"
+          ]
+        },
+        {
+          "topic": "Sellers",
+          "questions": [
+            "Which 5 sellers had the most orders in 2018?",
+            "Which seller states have the highest average review score?"
+          ]
+        },
+        {
+          "topic": "Reviews",
+          "questions": [
+            "How does the review score differ for late and on-time orders?",
+            "What share of reviews are 1-star by month?"
+          ]
+        },
+        {
+          "topic": "Products",
+          "questions": [
+            "Which categories have the highest freight cost per item?",
+            "How many distinct products were sold in 2017?"
+          ]
+        }
+      ],
+      "limits": [
+        "No names: sellers and customers are identified by ids, city and state only.",
+        "No profit or costs: revenue is item prices; freight is reported separately.",
+        "No review text: only scores and whether a comment exists.",
+        "No forecasts or predictions: the data describes 2016 to 2018 only.",
+        "No causes: the data shows where and when something happened, not why.",
+        "No changes: the agent can only read the data, never modify it."
+      ]
+    },
+    {
+      "type": "table",
+      "columns": [
+        "order_id",
+        "order_status",
+        "purchase_date",
+        "customer_state",
+        "item_count",
+        "items_revenue",
+        "review_score"
+      ],
+      "rows": [
+        [
+          "00010242fe8c5a6d1ba2dd792cb16214",
+          "delivered",
+          "2017-09-13",
+          "RJ",
+          1,
+          "58.90",
+          5
+        ],
+        [
+          "00018f77f2f0320c557190d7a144bdd3",
+          "delivered",
+          "2017-04-26",
+          "SP",
+          1,
+          "239.90",
+          4
+        ],
+        [
+          "000229ec398224ef6ca0657da4fc703e",
+          "delivered",
+          "2018-01-14",
+          "MG",
+          1,
+          "199.00",
+          5
+        ],
+        [
+          "00024acbcdf0a6daa1e931b038114c75",
+          "delivered",
+          "2018-08-08",
+          "SP",
+          1,
+          "12.99",
+          4
+        ],
+        [
+          "00042b26cf59d7ce69dfabb4e55b4fd9",
+          "delivered",
+          "2017-02-04",
+          "SP",
+          1,
+          "199.90",
+          5
+        ]
+      ]
+    }
+  ],
+  "scope": {
+    "period": null,
+    "population": null,
+    "filters": [],
+    "definitions": [],
+    "assumptions": [
+      "Answered from the data catalog, without a model call"
+    ],
+    "n": 0,
+    "truncated": false,
+    "partial_period_warnings": []
+  },
+  "evidence": [
+    {
+      "id": "e1",
+      "kind": "sql",
+      "sql": "SELECT order_id, order_status, purchase_date, customer_state, item_count, items_revenue, review_score FROM orders ORDER BY order_id LIMIT 5",
+      "params": {},
+      "row_count": 5,
+      "rows_preview": [
+        [
+          "00010242fe8c5a6d1ba2dd792cb16214",
+          "delivered",
+          "2017-09-13",
+          "RJ",
+          1.0,
+          58.9,
+          5.0
+        ],
+        [
+          "00018f77f2f0320c557190d7a144bdd3",
+          "delivered",
+          "2017-04-26",
+          "SP",
+          1.0,
+          239.9,
+          4.0
+        ],
+        [
+          "000229ec398224ef6ca0657da4fc703e",
+          "delivered",
+          "2018-01-14",
+          "MG",
+          1.0,
+          199.0,
+          5.0
+        ],
+        [
+          "00024acbcdf0a6daa1e931b038114c75",
+          "delivered",
+          "2018-08-08",
+          "SP",
+          1.0,
+          12.99,
+          4.0
+        ],
+        [
+          "00042b26cf59d7ce69dfabb4e55b4fd9",
+          "delivered",
+          "2017-02-04",
+          "SP",
+          1.0,
+          199.9,
+          5.0
+        ]
+      ],
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "attempts": [],
+      "ms": 455
+    }
+  ],
+  "notes": [
+    "Orders placed on Olist, a Brazilian online marketplace that connects small sellers to customers. Each order has its items, payments, delivery dates and customer review score.",
+    "The agent reads 6 tables: data_coverage, order_items, orders, payments, reviews, sellers. The table below shows 5 example orders.",
+    "Open the data guide for every table's columns, the definitions, and example questions by topic."
+  ],
+  "caveats": [],
+  "warnings": [],
+  "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+  },
+  "followups": [],
+  "usage": {
+    "llm_calls": 0,
+    "cached_calls": 0,
+    "tokens_in": 0,
+    "tokens_cache_hit": 0,
+    "tokens_out": 0,
+    "cost_usd": 0.0,
+    "latency_ms": 0
+  }
+}

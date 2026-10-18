@@ -1,0 +1,871 @@
+{
+ "run_at": "2026-10-18T12:01:12+00:00",
+ "model": "deepseek-flash",
+ "cases": [
+  {
+   "id": "inv_late_01",
+   "question": "Why was March 2018 so bad for deliveries?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "carrier_transit",
+    "evidence": {
+     "n": 7003,
+     "late_rate": 18.96,
+     "baseline_rate": 5.83,
+     "transit_delta_days": 3.91,
+     "handling_delta_days": 0.14,
+     "promised_delta_days": -1.74
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "March 2018 was genuinely elevated for late deliveries: 19.0% of the 7,003 delivered orders were late versus a 5.8% baseline, a gap of 13.2 percentage points, and the pattern was systemic rather than confined to a few states or sellers.",
+   "notes": [
+    "Late rate was 19.0% against a 5.8% baseline (delta 13.2 points), with 1,328 late orders out of 7,003 delivered.",
+    "The top driver was carrier_transit: transit averaged 12.97 days versus a 9.06-day baseline, roughly 3.9 days longer, while handling was only slightly above baseline (3.33 vs 3.19 days).",
+    "The problem was systemic: excluding the two worst states still left a 23.7% late rate, and late orders spanned 466 sellers with the top 5 accounting for only 11.5% of them.",
+    "It was concentrated geographically: RJ ran 34.5% late (baseline 10.5%, 208 excess late orders), MG 20.4% (baseline 3.3%, 147 excess), and SP 9.4% (baseline 4.1%, 158 excess).",
+    "Late deliveries coincided with much worse reviews: average 2.07 versus 4.21 for on-time, with a 59.3% one-star share versus 7.9%."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Some category samples are small, e.g. audio with only 33 orders, so its 42.4% rate is unstable.",
+    "Promised days were actually shorter than baseline (22.03 vs 23.78), so the elevated late rate is not explained by longer promises."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 36,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 1655,
+    "tokens_cache_hit": 896,
+    "tokens_out": 493,
+    "cost_usd": 0.0,
+    "latency_ms": 3222
+   }
+  },
+  {
+   "id": "inv_late_02",
+   "question": "What went wrong with deliveries in February 2018?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "carrier_transit",
+    "evidence": {
+     "n": 6555,
+     "late_rate": 14.13,
+     "baseline_rate": 6.25,
+     "transit_delta_days": 4.34,
+     "handling_delta_days": 0.38,
+     "promised_delta_days": 0.94
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "February 2018 was an unusually late month: 14.1% of delivered orders arrived late versus a 6.3% baseline, with the gap concentrated in carrier transit time.",
+   "notes": [
+    "Late rate was 14.1% against a 6.3% baseline, a gap of 7.8 percentage points across 6,555 delivered orders (926 late).",
+    "Carrier transit averaged 13.38 days versus a 9.05-day baseline, about 4.3 days longer; handling time rose only modestly, from 3.18 to 3.56 days.",
+    "The pattern was systemic: excluding the two worst states, the late rate was still 14.3%, and late orders spanned 357 sellers, with the top five accounting for 13.9% of them.",
+    "RJ stood out with a 34.0% late rate versus a 10.5% baseline (207 excess late orders); SC was at 24.0% versus 7.0%, and SP at 7.3% versus 4.3%.",
+    "Late deliveries coincided with much lower review scores: 1.91 average versus 4.2 on time, and 64.1% one-star reviews versus 7.7%."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Category and seller breakdowns are small in places (for example 53 orders for construction_tools_construction), so their rates are less reliable.",
+    "The findings describe associations only; they do not establish causes."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 28,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1656,
+    "tokens_cache_hit": 384,
+    "tokens_out": 434,
+    "cost_usd": 0.00037178,
+    "latency_ms": 5743
+   }
+  },
+  {
+   "id": "inv_late_03",
+   "question": "Why were deliveries late in November 2017?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "carrier_transit",
+    "evidence": {
+     "n": 7288,
+     "late_rate": 12.4,
+     "baseline_rate": 6.33,
+     "transit_delta_days": 1.9,
+     "handling_delta_days": 0.93,
+     "promised_delta_days": -1.18
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "November 2017 was an unusually late month: 12.4% of delivered orders were late versus a 6.3% baseline, with the gap concentrated in carrier transit time and in RJ.",
+   "notes": [
+    "Late rate was 12.4% (904 of 7,288 delivered orders) against a 6.3% baseline, a gap of 6.1 percentage points.",
+    "Carrier transit was the top driver: 11.09 days versus 9.2 days baseline, about 1.9 days longer; handling was 4.07 days versus 3.13 days, about 0.9 days longer.",
+    "The pattern was systemic rather than confined to a few states: the late rate excluding the top two states was still 13.0%.",
+    "RJ stood out with a 26.0% late rate versus 10.9% baseline (153 excess late orders); SP had 7.0% versus 4.3% (77 excess) and RS 12.7% versus 5.6% (29 excess).",
+    "Late orders coincided with much lower reviews: average 2.2 versus 4.24 for on-time orders, and 55.9% of late orders received one star versus 7.1% of on-time orders."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Category samples are small (home_confort n=40, office_furniture n=75, books_general_interest n=37), so those rates are unstable.",
+    "Late orders were spread across 325 sellers, with the top five accounting for only 18.4% of them, so no single seller explains the period.",
+    "Promised delivery time was actually shorter than baseline (22.56 versus 23.74 days), so the late rate reflects actual delivery times rather than longer promises."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 35,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1656,
+    "tokens_cache_hit": 384,
+    "tokens_out": 502,
+    "cost_usd": 0.00041153,
+    "latency_ms": 4806
+   }
+  },
+  {
+   "id": "inv_late_04",
+   "question": "Why were deliveries to Rio de Janeiro so late in March 2018?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "carrier_transit",
+    "evidence": {
+     "n": 864,
+     "late_rate": 34.49,
+     "baseline_rate": 10.46,
+     "transit_delta_days": 9.74,
+     "handling_delta_days": -0.06,
+     "promised_delta_days": 1.8
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "Deliveries to Rio de Janeiro in March 2018 were unusually late: 34.5% of 864 orders arrived late versus a 10.5% baseline, and the gap was concentrated in carrier transit time.",
+   "notes": [
+    "The late rate was 34.5% (298 of 864 orders), 24.0 percentage points above the 10.5% baseline.",
+    "Carrier transit averaged 21.08 days versus an 11.35-day baseline, about 9.7 days longer, while handling time was essentially flat (3.21 vs 3.28 days).",
+    "The promised window was slightly longer than baseline (27.95 vs 26.15 days), so the extra transit still exceeded the promise.",
+    "Late orders were spread across many sellers: 175 sellers had late orders, and the top five accounted for only 14.4% of them.",
+    "Late deliveries coincided with much lower review scores (1.67 vs 4.06 on time), and 72.6% of late-order reviews were one star versus 10.8% for on-time orders."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Category rates rest on small samples (garden_tools n=32, watches_gifts n=59, bed_bath_table n=96), so those figures are noisy.",
+    "Review comparisons cover only orders with reviews (285 late, 563 on time) and reflect the reviewers, not all orders."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 27,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1356,
+    "tokens_cache_hit": 384,
+    "tokens_out": 425,
+    "cost_usd": 0.00031778,
+    "latency_ms": 4073
+   }
+  },
+  {
+   "id": "inv_late_05",
+   "question": "Investigate late deliveries to Minas Gerais in March 2018.",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "carrier_transit",
+    "evidence": {
+     "n": 856,
+     "late_rate": 20.44,
+     "baseline_rate": 3.29,
+     "transit_delta_days": 4.76,
+     "handling_delta_days": 0.4,
+     "promised_delta_days": -2.13
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "carrier_transit",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "Late deliveries to Minas Gerais in March 2018 were elevated: 20.4% of 856 delivered orders were late versus a 3.3% baseline, with the gap concentrated in carrier transit time.",
+   "notes": [
+    "175 of 856 delivered orders were late (20.4%), about 17.1 percentage points above the 3.3% baseline.",
+    "Transit took 13.19 days versus an 8.43-day baseline, roughly 4.8 days longer, while handling was only modestly higher (3.57 vs 3.18 days).",
+    "The promised window was actually shorter than baseline (22.49 vs 24.62 days), so the longer transit coincided with a tighter promise.",
+    "Late orders were spread across 118 sellers, with the top five accounting for 16.6% of them, and the highest late rates appeared in bed_bath_table (34.9%, n=83), health_beauty (27.8%, n=79) and housewares (26.8%, n=41).",
+    "Late orders coincided with lower review scores (2.15 vs 4.08 on time) and a much higher one-star share (58.3% vs 9.4%)."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Category and seller figures are small samples (e.g., 41-83 orders per top category), so rates are noisy.",
+    "Review comparisons cover only orders with reviews (168 late, 679 on time)."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 32,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1351,
+    "tokens_cache_hit": 384,
+    "tokens_out": 432,
+    "cost_usd": 0.00032198,
+    "latency_ms": 4062
+   }
+  },
+  {
+   "id": "inv_late_06",
+   "question": "Why did late deliveries rise in December 2017?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "nothing_notable",
+    "top_driver": "none",
+    "evidence": {
+     "n": 5513,
+     "late_rate": 7.46,
+     "baseline_rate": 6.75,
+     "transit_delta_days": 2.47,
+     "handling_delta_days": 0.55,
+     "promised_delta_days": 4.28
+    }
+   },
+   "verdict": "nothing_notable",
+   "top_driver": "none",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "December 2017 was not unusual overall: the late rate was 7.5% versus a 6.7% baseline, a gap of 0.8 points, and the playbook verdict is nothing_notable.",
+   "notes": [
+    "Late deliveries were 411 of 5,513 delivered orders (7.5%), against a 6.7% baseline, a difference of 0.8 points.",
+    "The excess was concentrated in RJ: 746 orders at a 24.0% late rate versus an 11.4% baseline, about 94 excess late orders. Excluding RJ and RS, the late rate was 4.5%.",
+    "Handling averaged 3.72 days versus 3.17 baseline and transit 11.67 days versus 9.2 baseline, about 2.5 days longer; promised delivery windows were also longer (27.68 versus 23.4 days).",
+    "Late orders coincided with much lower review scores (2.11 versus 4.24) and a 58.4% one-star share versus 7.0% for on-time orders.",
+    "Small categories showed higher late rates (musical_instruments 19.5% on 41 orders, baby 14.1% on 135, office_furniture 13.2% on 38), but these samples are small."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Late orders were spread across 195 sellers, and the top 5 sellers account for only 17.3% of late orders, so no single seller explains the period.",
+    "Category-level rates rest on small order counts (38 to 135 orders).",
+    "The findings give no top driver (top_driver is none), so no single factor is identified."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 36,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1649,
+    "tokens_cache_hit": 384,
+    "tokens_out": 482,
+    "cost_usd": 0.00039833,
+    "latency_ms": 4856
+   }
+  },
+  {
+   "id": "inv_rev_01",
+   "question": "Why did review scores drop in March 2018?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "late_delivery",
+    "evidence": {
+     "n": 7148,
+     "one_star_share": 19.0,
+     "baseline_share": 10.86,
+     "contribution_points": {
+      "late": 7.84,
+      "on_time": 0.31,
+      "not_delivered": -0.01
+     }
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "late_delivery",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "March 2018 review scores were unusually low, averaging 3.75 versus a 4.11 baseline, with the one-star share nearly doubling to 19.0% from 10.9%.",
+   "notes": [
+    "The drop was concentrated in late deliveries: 56.6% of one-star reviews came from late orders, and late delivery contributed 7.8 of the 8.1-point rise in one-star share.",
+    "On-time orders contributed only 0.3 points and not-delivered orders roughly zero, so the shift was not spread evenly across delivery outcomes.",
+    "Among categories, audio (2.94 vs 3.92 baseline, n=33), construction tools (3.36 vs 4.11, n=51), and toys (3.63 vs 4.19, n=221) scored lowest.",
+    "The lowest-scoring sellers were c3867b4666c7d76867627c2f7fb22e21 (2.36, n=32), 70a12e78e608ac31179aea7f8422044b (2.94, n=36), and 7c67e1448b00f6e969d365cea6b010ab (3.11, n=138)."
+   ],
+   "caveats": [
+    "Review scores are associations with delivery outcomes, not proof of cause.",
+    "Each order counts once, with its latest answered review; review text is not used.",
+    "Several category and seller samples are small (n=32 to n=51), so their scores are less stable.",
+    "Seller-level findings may reflect multi-seller attribution rather than a single seller's performance."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 26,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 1336,
+    "tokens_cache_hit": 384,
+    "tokens_out": 435,
+    "cost_usd": 0.0,
+    "latency_ms": 3036
+   }
+  },
+  {
+   "id": "inv_rev_02",
+   "question": "What caused the low review scores in February 2018?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "late_delivery",
+    "evidence": {
+     "n": 6672,
+     "one_star_share": 17.13,
+     "baseline_share": 11.04,
+     "contribution_points": {
+      "late": 5.67,
+      "on_time": 0.54,
+      "not_delivered": -0.12
+     }
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "late_delivery",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "February 2018 review scores were below baseline, with late delivery the top associated driver.",
+   "notes": [
+    "Average score was 3.83 versus a baseline of 4.11, and the one-star share was 17.1% versus 11.0% (a 6.1 point gap).",
+    "Late delivery was the top driver, contributing 5.7 of the 6.1 point one-star gap; on-time contributed 0.5 and not-delivered -0.1.",
+    "Among one-star reviews, 51.2% came from late orders, 37.9% from on-time orders, and 10.9% from not-delivered orders.",
+    "The weakest category by score was computers_accessories (3.45 vs 4.0 baseline, n=795), followed by luggage_accessories (3.5 vs 4.35, n=44) and food (3.67 vs 4.26, n=31).",
+    "The lowest-scoring sellers were 710e3548e02bc1d2831dfc4f1b5b14d4 (2.15, n=32), 897060da8b9a21f655304d50fd935913 (2.52, n=43), and 7c67e1448b00f6e969d365cea6b010ab (2.78, n=49)."
+   ],
+   "caveats": [
+    "Review scores are associations with delivery outcomes, not proof of cause.",
+    "Each order counts once, with its latest answered review; review text is not used.",
+    "Some category and seller samples are small (e.g., luggage_accessories n=44, food n=31, sellers n=32-49), so their scores are less stable.",
+    "Seller-level findings may reflect multi-seller attribution rather than a single seller's performance."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 32,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 1340,
+    "tokens_cache_hit": 384,
+    "tokens_out": 482,
+    "cost_usd": 0.0,
+    "latency_ms": 2983
+   }
+  },
+  {
+   "id": "inv_rev_03",
+   "question": "Why are customers in Rio de Janeiro giving low reviews in March 2018?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "late_delivery",
+    "evidence": {
+     "n": 887,
+     "one_star_share": 33.48,
+     "baseline_share": 15.68,
+     "contribution_points": {
+      "late": 17.09,
+      "on_time": 0.13,
+      "not_delivered": 0.59
+     }
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "late_delivery",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "Reviews in Rio de Janeiro in March 2018 were unusually low, with an average score of 3.18 versus a 3.93 baseline and a one-star share of 33.5% versus 15.7%.",
+   "notes": [
+    "The one-star share was 17.8 percentage points above baseline, and late delivery was the top driver.",
+    "Among one-star reviews, 69.7% came from late orders, 20.5% from on-time orders, and 9.8% from not-delivered orders.",
+    "Late delivery contributed 17.1 points to the one-star share, while on-time contributed 0.1 points and not-delivered 0.6 points.",
+    "The lowest-scoring categories were electronics (2.92 vs 3.86 baseline, n=45), sports_leisure (3.01 vs 3.91, n=77), and watches_gifts (2.95 vs 3.82, n=59).",
+    "No worst sellers were identified in the findings."
+   ],
+   "caveats": [
+    "Review scores are associations with delivery outcomes, not proof of cause.",
+    "Each order counts once, with its latest answered review; review text is not used.",
+    "Category samples are small (n=45 to 77), so those category-level scores are less reliable.",
+    "The findings do not attribute issues to individual sellers, so multi-seller effects cannot be separated."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 23,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 1215,
+    "tokens_cache_hit": 384,
+    "tokens_out": 388,
+    "cost_usd": 0.0,
+    "latency_ms": 2498
+   }
+  },
+  {
+   "id": "inv_rev_04",
+   "question": "Why did review scores fall in November 2017?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "elevated",
+    "top_driver": "late_delivery",
+    "evidence": {
+     "n": 7480,
+     "one_star_share": 15.12,
+     "baseline_share": 11.15,
+     "contribution_points": {
+      "late": 3.4,
+      "on_time": 0.05,
+      "not_delivered": 0.52
+     }
+    }
+   },
+   "verdict": "elevated",
+   "top_driver": "late_delivery",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "November 2017 review scores were below baseline, with the drop concentrated in late deliveries.",
+   "notes": [
+    "Average score was 3.91 versus a baseline of 4.10, and the one-star share was 15.1% versus 11.2%.",
+    "Late delivery was the top driver, contributing 3.4 points of the 3.9-point gap.",
+    "Among one-star reviews, 43.9% came from late orders, 39.9% from on-time orders, and 16.3% from not-delivered orders.",
+    "The lowest-scoring categories were home_confort (3.2 vs 3.9 baseline), fashion_bags_accessories (3.56 vs 4.21), and office_furniture (2.91 vs 3.54).",
+    "The lowest-scoring sellers had small samples: 43, 66, and 50 reviews, with scores of 2.37, 2.63, and 2.97."
+   ],
+   "caveats": [
+    "Review scores are associations with delivery outcomes, not proof of cause.",
+    "Each order counts once, with its latest answered review; review text is not used.",
+    "Some category and seller samples are small, and seller baselines are not available.",
+    "Seller-level results may reflect multi-seller attribution."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 22,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 1341,
+    "tokens_cache_hit": 384,
+    "tokens_out": 363,
+    "cost_usd": 0.0,
+    "latency_ms": 3154
+   }
+  },
+  {
+   "id": "inv_neg_01",
+   "question": "Why were deliveries so bad in July 2017?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "nothing_notable",
+    "top_driver": "none",
+    "evidence": {
+     "n": 3872,
+     "late_rate": 2.79,
+     "baseline_rate": 6.96,
+     "transit_delta_days": -0.86,
+     "handling_delta_days": -0.1,
+     "promised_delta_days": -0.34
+    }
+   },
+   "verdict": "nothing_notable",
+   "top_driver": "none",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "July 2017 was not an unusually bad delivery month: the late rate was 2.8%, well below the 7.0% baseline.",
+   "notes": [
+    "The late rate of 2.8% was 4.2 percentage points below the 7.0% baseline, so the period was calmer than usual rather than worse.",
+    "Handling averaged 3.11 days versus a 3.21-day baseline, and transit averaged 8.51 days versus a 9.38-day baseline, about 0.9 days shorter.",
+    "The three states with the most late orders (SC, PR, RS) all came in below their baselines, and the rate excluding the top two states was also 2.8%.",
+    "Late orders were concentrated in a few categories: consoles_games at 11.1% versus a 5.9% baseline, luggage_accessories at 6.9% versus 4.1%, and fashion_bags_accessories at 6.2% versus 5.6%.",
+    "Late deliveries coincided with much lower review scores: 2.25 average for late orders versus 4.32 for on-time orders, and 54.3% of late orders got one star versus 5.5% of on-time orders."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Late orders were spread across 83 sellers, and the top five sellers accounted for only 19.4% of them, so no single seller explains the pattern.",
+    "Category samples are small (for example, 45 orders in consoles_games), so those rates are noisy."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 25,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1651,
+    "tokens_cache_hit": 384,
+    "tokens_out": 450,
+    "cost_usd": 0.00037943,
+    "latency_ms": 4801
+   }
+  },
+  {
+   "id": "inv_neg_02",
+   "question": "Investigate the late deliveries in June 2018.",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "nothing_notable",
+    "top_driver": "none",
+    "evidence": {
+     "n": 6096,
+     "late_rate": 1.16,
+     "baseline_rate": 7.17,
+     "transit_delta_days": -2.84,
+     "handling_delta_days": -0.67,
+     "promised_delta_days": 4.4
+    }
+   },
+   "verdict": "nothing_notable",
+   "top_driver": "none",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "June 2018 was not unusual for late deliveries: the late rate was 1.2%, well below the 7.2% baseline.",
+   "notes": [
+    "Of 6,096 delivered orders, 71 were late, a 1.2% late rate versus a 7.2% baseline, about 6.0 points lower.",
+    "Handling averaged 2.57 days versus 3.25 days at baseline, and transit averaged 6.68 days versus 9.52 days at baseline, about 2.8 days shorter.",
+    "Promised delivery windows were longer than baseline, 27.77 days versus 23.37 days.",
+    "The states with the most late orders (GO, DF, ES) all had late rates below their baselines, and the rate excluding the top two states was also 1.2%.",
+    "Late orders coincided with lower review scores: 2.31 average versus 4.33 for on-time orders, and 52.1% one-star reviews versus 6.6%."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Late orders were spread across 58 sellers, and the top five sellers accounted for 16.9% of them, so no single seller stands out.",
+    "Category samples are small (for example, 30 drinks orders), which limits how much can be read into category-level rates."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 23,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1646,
+    "tokens_cache_hit": 384,
+    "tokens_out": 400,
+    "cost_usd": 0.00034868,
+    "latency_ms": 4613
+   }
+  },
+  {
+   "id": "inv_neg_03",
+   "question": "What went wrong with deliveries in May 2017?",
+   "route": "investigate",
+   "route_ok": true,
+   "label": {
+    "verdict": "nothing_notable",
+    "top_driver": "none",
+    "evidence": {
+     "n": 3545,
+     "late_rate": 2.99,
+     "baseline_rate": 6.93,
+     "transit_delta_days": -1.04,
+     "handling_delta_days": -0.23,
+     "promised_delta_days": 0.66
+    }
+   },
+   "verdict": "nothing_notable",
+   "top_driver": "none",
+   "verdict_ok": true,
+   "driver_ok": true,
+   "headline": "May 2017 was not an unusually bad delivery month: the late rate was 3.0%, below the 6.9% baseline, so the premise of a delivery problem is not supported by the data.",
+   "notes": [
+    "Late orders were 106 of 3,545 delivered orders, a 3.0% late rate versus a 6.9% baseline, about 3.9 points lower.",
+    "Handling averaged 2.98 days versus 3.21 baseline and transit 8.34 days versus 9.38 baseline, while promised delivery time was slightly longer at 24.28 days versus 23.62.",
+    "No state stood out for excess lateness: SP was 4.3% versus 4.5% baseline, SC 4.8% versus 8.4%, and PR 1.0% versus 4.2%; the rate excluding the top two states was 2.0%.",
+    "Late orders were spread across 80 sellers, and the top five sellers accounted for 16.0% of them; the highest listed seller rate was 7.0% against a 5.2% baseline, only about 1 excess late order.",
+    "Late deliveries coincided with much lower review scores: 2.74 average for late orders versus 4.28 on time, and 45.5% one-star reviews versus 6.3%."
+   ],
+   "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Some category samples are small, for example home_confort with 32 orders and office_furniture with 42.",
+    "The review comparison covers 99 late and 3,418 on-time orders and is an association, not evidence of cause."
+   ],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 34,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 1,
+    "tokens_in": 1653,
+    "tokens_cache_hit": 384,
+    "tokens_out": 530,
+    "cost_usd": 0.00042773,
+    "latency_ms": 5085
+   }
+  },
+  {
+   "id": "inv_none_01",
+   "question": "Why did revenue fall in June 2018?",
+   "route": "refuse",
+   "route_ok": true,
+   "label": {
+    "verdict": "not_applicable",
+    "top_driver": null,
+    "evidence": {
+     "note": "no playbook applies"
+    }
+   },
+   "verdict": null,
+   "top_driver": null,
+   "verdict_ok": null,
+   "driver_ok": null,
+   "headline": "This question cannot be answered from the order data.",
+   "notes": [
+    "The question asks for a causal explanation ('why'), which cannot be answered by a single read-only SELECT over these tables. The data can show what changed (e.g., revenue, order counts, categories, states, late rates by month), but not the reason.",
+    "No root-cause or diagnostic columns exist in the listed views; only descriptive metrics are available.",
+    "A descriptive comparison could be produced (e.g., June 2018 revenue vs. prior months by category or state), but it would not establish causation, so no single SELECT is returned."
+   ],
+   "caveats": [],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 2,
+    "cached_calls": 2,
+    "tokens_in": 2707,
+    "tokens_cache_hit": 2304,
+    "tokens_out": 201,
+    "cost_usd": 0.0,
+    "latency_ms": 52
+   }
+  },
+  {
+   "id": "inv_none_02",
+   "question": "Why do customers prefer credit cards?",
+   "route": "refuse",
+   "route_ok": true,
+   "label": {
+    "verdict": "not_applicable",
+    "top_driver": null,
+    "evidence": {
+     "note": "no playbook applies"
+    }
+   },
+   "verdict": null,
+   "top_driver": null,
+   "verdict_ok": null,
+   "driver_ok": null,
+   "headline": "That question is outside what the order data can answer.",
+   "notes": [
+    "The question asks about customer motivations or preferences, which is not answerable from the available order, payment, delivery, and review data."
+   ],
+   "caveats": [],
+   "warnings": [],
+   "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+   },
+   "usage": {
+    "llm_calls": 1,
+    "cached_calls": 1,
+    "tokens_in": 508,
+    "tokens_cache_hit": 256,
+    "tokens_out": 65,
+    "cost_usd": 0.0,
+    "latency_ms": 28
+   }
+  }
+ ],
+ "followups": [
+  {
+   "id": "fu_01",
+   "after": "inv_late_01",
+   "question": "Which 5 sellers had the most late orders?",
+   "status": "ok",
+   "correct": true,
+   "scope_ok": true,
+   "sql": "WITH late_by_seller AS (SELECT oi.seller_id, COUNT(DISTINCT oi.order_id) AS late_orders FROM analytics.order_items AS oi JOIN analytics.orders AS o ON o.order_id = oi.order_id WHERE o.is_delivered AND o.is_late AND o.purchase_month = CAST('2018-03-01' AS DATE) GROUP BY oi.seller_id) SELECT seller_id, late_orders FROM late_by_seller ORDER BY late_orders DESC, seller_id LIMIT 5",
+   "headline": "The seller with the most late orders was 4869f7a5dfa277a7dca6462dcf3b52b2, with 35 late orders.",
+   "warnings": [],
+   "usage": {
+    "llm_calls": 3,
+    "cached_calls": 2,
+    "tokens_in": 3538,
+    "tokens_cache_hit": 2432,
+    "tokens_out": 570,
+    "cost_usd": 0.00028725,
+    "latency_ms": 1763
+   }
+  },
+  {
+   "id": "fu_02",
+   "after": "inv_late_04",
+   "question": "How many late orders were there?",
+   "status": "ok",
+   "correct": true,
+   "scope_ok": true,
+   "sql": "SELECT COUNT(*) AS late_orders FROM analytics.orders WHERE is_delivered AND is_late AND purchase_month = CAST('2018-03-01' AS DATE) AND customer_state = 'RJ' LIMIT 501",
+   "headline": "There were 298 late orders in the scope (orders purchased in March 2018, customer state RJ, delivered orders only).",
+   "warnings": [],
+   "usage": {
+    "llm_calls": 3,
+    "cached_calls": 2,
+    "tokens_in": 3383,
+    "tokens_cache_hit": 2688,
+    "tokens_out": 285,
+    "cost_usd": 0.00013127,
+    "latency_ms": 1105
+   }
+  },
+  {
+   "id": "fu_03",
+   "after": "inv_late_02",
+   "question": "What was the average carrier transit time in days?",
+   "status": "ok",
+   "correct": true,
+   "scope_ok": true,
+   "sql": "SELECT ROUND(CAST(AVG(carrier_transit_days) AS DECIMAL), 2) AS avg_carrier_transit_days FROM analytics.orders WHERE purchase_month = CAST('2018-02-01' AS DATE) AND is_delivered = TRUE AND carrier_transit_days IS NOT NULL LIMIT 501",
+   "headline": "The average carrier transit time was 13.38 days for delivered orders purchased in February 2018.",
+   "warnings": [],
+   "usage": {
+    "llm_calls": 3,
+    "cached_calls": 2,
+    "tokens_in": 3434,
+    "tokens_cache_hit": 2688,
+    "tokens_out": 381,
+    "cost_usd": 0.00014162,
+    "latency_ms": 1802
+   }
+  },
+  {
+   "id": "fu_04",
+   "after": "inv_late_05",
+   "question": "How many orders were delivered?",
+   "status": "ok",
+   "correct": true,
+   "scope_ok": true,
+   "sql": "SELECT COUNT(*) AS delivered_orders FROM analytics.orders WHERE is_delivered = TRUE AND purchase_month = CAST('2018-03-01' AS DATE) AND customer_state = 'MG' LIMIT 501",
+   "headline": "856 orders were delivered for the March 2018 scope in Minas Gerais.",
+   "warnings": [],
+   "usage": {
+    "llm_calls": 3,
+    "cached_calls": 2,
+    "tokens_in": 3369,
+    "tokens_cache_hit": 2688,
+    "tokens_out": 276,
+    "cost_usd": 0.00012287,
+    "latency_ms": 1212
+   }
+  },
+  {
+   "id": "fu_05",
+   "after": "inv_rev_01",
+   "question": "What share of reviews were 1-star?",
+   "status": "ok",
+   "correct": true,
+   "scope_ok": true,
+   "sql": "SELECT ROUND(CAST(100.0 * COUNT(*) FILTER(WHERE review_score = 1) / COUNT(*) AS DECIMAL), 2) AS one_star_share_pct FROM analytics.orders WHERE purchase_month = CAST('2018-03-01' AS DATE) AND review_score IS NOT NULL LIMIT 501",
+   "headline": "About 19% of reviewed orders in March 2018 received a 1-star review.",
+   "warnings": [],
+   "usage": {
+    "llm_calls": 3,
+    "cached_calls": 2,
+    "tokens_in": 3383,
+    "tokens_cache_hit": 2688,
+    "tokens_out": 341,
+    "cost_usd": 0.00013787,
+    "latency_ms": 1688
+   }
+  }
+ ]
+}

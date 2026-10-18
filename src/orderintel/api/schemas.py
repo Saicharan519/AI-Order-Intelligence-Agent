@@ -66,7 +66,7 @@ class UsageOut(BaseModel):
 
 class AskResponse(BaseModel):
     request_id: str
-    route: Literal["answer", "investigate", "clarify", "refuse"]
+    route: Literal["answer", "investigate", "clarify", "refuse", "about"]
     status: Literal["ok", "clarify", "refused", "sql_failed", "not_available", "error"]
     headline: str
     components: list[dict[str, Any]] = Field(default_factory=list)

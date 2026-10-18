@@ -6,6 +6,11 @@ rate is at least baseline + 3 points AND at least 1.5 x baseline AND the sample 
 100 delivered orders; otherwise "nothing_notable". The top driver is the delivery stage
 whose average moved most against the customer: longer seller handling, longer carrier
 transit, or a shorter promise. Everything here is computed in code; the model only narrates.
+
+Every step applies the same analysis window. A month outside it therefore has no rows in
+any step (the period check in agent/precheck.py answers such questions before a
+playbook runs); before this rule, two steps ignored the window and a September 2016
+investigation reported 0 delivered orders next to 1 seller with late orders.
 """
 
 from __future__ import annotations
@@ -75,7 +80,8 @@ STEPS = [
         f"""
         WITH s AS (
             SELECT seller_id, count(DISTINCT order_id) AS late_orders
-            FROM order_items WHERE is_late AND purchase_month = :p_month AND {STATE_FILTER}
+            FROM order_items
+            WHERE is_late AND purchase_month = :p_month AND {WINDOW} AND {STATE_FILTER}
             GROUP BY seller_id)
         SELECT count(*) AS sellers_with_late_orders,
                (SELECT sum(late_orders) FROM (
@@ -106,7 +112,7 @@ STEPS = [
                round(avg(review_score), 2) AS avg_score,
                count(*) FILTER (WHERE review_score = 1) AS one_star
         FROM orders
-        WHERE is_delivered AND purchase_month = :p_month AND {STATE_FILTER}
+        WHERE is_delivered AND purchase_month = :p_month AND {WINDOW} AND {STATE_FILTER}
         GROUP BY is_late ORDER BY is_late""",
     ),
 ]

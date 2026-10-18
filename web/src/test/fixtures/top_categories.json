@@ -1,0 +1,157 @@
+{
+  "notes": [
+    "bed_bath_table (R$497,971), watches_gifts (R$486,519), and health_beauty (R$481,143) are within a narrow band at the top.",
+    "sports_leisure follows at R$447,547 and computers_accessories at R$400,491.",
+    "The top five categories span roughly R$400k to R$498k in revenue."
+  ],
+  "route": "answer",
+  "scope": {
+    "n": 5,
+    "period": {
+      "end": "2017-12-31",
+      "start": "2017-01-01",
+      "source": "sql"
+    },
+    "filters": [],
+    "truncated": false,
+    "population": null,
+    "assumptions": [
+      "Revenue is the sum of item price over sales (is_sale = true), excluding freight.",
+      "2017 means purchase dates from 2017-01-01 to 2017-12-31.",
+      "Categories are ranked by total revenue across all of 2017; the analysis window restriction does not apply to a full-year total."
+    ],
+    "definitions": [
+      "Category: English name; unknown if missing",
+      "Sale: status is not canceled or unavailable",
+      "Revenue: item prices of sales, excluding freight"
+    ],
+    "partial_period_warnings": []
+  },
+  "usage": {
+    "cost_usd": 0.0,
+    "llm_calls": 3,
+    "tokens_in": 3303,
+    "latency_ms": 572,
+    "tokens_out": 397,
+    "cached_calls": 3,
+    "tokens_cache_hit": 2432
+  },
+  "status": "ok",
+  "caveats": [
+    "Revenue excludes freight and counts only sales (status not canceled or unavailable).",
+    "Categories with missing names are labeled unknown and may not appear here."
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "ms": 0,
+      "sql": "SELECT category, ROUND(SUM(price), 2) AS revenue FROM analytics.order_items WHERE is_sale = TRUE AND purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) GROUP BY category ORDER BY revenue DESC LIMIT 5",
+      "kind": "sql",
+      "params": {},
+      "attempts": [
+        {
+          "sql": "SELECT category, ROUND(SUM(price), 2) AS revenue FROM analytics.order_items WHERE is_sale = TRUE AND purchase_date >= CAST('2017-01-01' AS DATE) AND purchase_date < CAST('2018-01-01' AS DATE) GROUP BY category ORDER BY revenue DESC LIMIT 5",
+          "stage": "ok",
+          "feedback": ""
+        }
+      ],
+      "row_count": 5,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          "bed_bath_table",
+          497970.94
+        ],
+        [
+          "watches_gifts",
+          486519.02
+        ],
+        [
+          "health_beauty",
+          481142.73
+        ],
+        [
+          "sports_leisure",
+          447546.59
+        ],
+        [
+          "computers_accessories",
+          400490.61
+        ]
+      ]
+    }
+  ],
+  "headline": "bed_bath_table led 2017 category revenue at R$497,971, followed closely by watches_gifts and health_beauty.",
+  "warnings": [],
+  "followups": [
+    {
+      "label": "How did these top categories' revenue change from 2016 to 2017?",
+      "question": "How did these top categories' revenue change from 2016 to 2017?",
+      "inherits_scope": false
+    },
+    {
+      "label": "What is the average order value for each of these top categories in 2017?",
+      "question": "What is the average order value for each of these top categories in 2017?",
+      "inherits_scope": false
+    }
+  ],
+  "grounding": {
+    "untraced": [],
+    "regenerated": false,
+    "causal_terms": [],
+    "numbers_checked": 9
+  },
+  "components": [
+    {
+      "rows": [
+        [
+          "bed_bath_table",
+          "497970.94"
+        ],
+        [
+          "watches_gifts",
+          "486519.02"
+        ],
+        [
+          "health_beauty",
+          "481142.73"
+        ],
+        [
+          "sports_leisure",
+          "447546.59"
+        ],
+        [
+          "computers_accessories",
+          "400490.61"
+        ]
+      ],
+      "type": "table",
+      "columns": [
+        "category",
+        "revenue"
+      ]
+    },
+    {
+      "x": "category",
+      "y": [
+        "revenue"
+      ],
+      "kind": "bar",
+      "type": "chart"
+    }
+  ],
+  "request_id": "5a4e2b6f-482f-4c99-bcf5-7411ac683999"
+}

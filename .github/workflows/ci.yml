@@ -2,7 +2,9 @@
 # PostgreSQL service loaded with the synthetic mini fixture. No LLM calls: the model is
 # faked in tests, no API key exists here, and tests marked `paid` never run by default.
 # Tests marked `realdata` need the real Olist CSVs (not redistributed) and are skipped
-# with a stated reason; everything else runs.
+# with a stated reason; everything else runs. The `web` job checks the Next.js frontend
+# (lint, types, unit tests against recorded responses, production build); it needs no
+# backend and no secrets.
 name: CI
 
 on:
@@ -73,3 +75,34 @@ jobs:
 
       - name: Tests
         run: python -m pytest -q -rs
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

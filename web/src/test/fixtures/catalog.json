@@ -1,0 +1,582 @@
+{
+  "dataset": {
+    "name": "Olist Brazilian e-commerce orders",
+    "description": "Orders placed on Olist, a Brazilian online marketplace that connects small sellers to customers. Each order has its items, payments, delivery dates and customer review score.",
+    "source": "Public Olist dataset (Kaggle, CC BY-NC-SA 4.0)"
+  },
+  "facts": {
+    "orders": 99441,
+    "delivered_orders": 96470,
+    "customers": 96096,
+    "customer_states": 27,
+    "sellers": 3095,
+    "products": 32951,
+    "categories": 74,
+    "first_month": "2016-09",
+    "last_month": "2018-10",
+    "analysis_window": {
+      "start": "2017-01",
+      "end": "2018-08"
+    },
+    "partial_months": [
+      {
+        "month": "2016-09",
+        "orders": 4
+      },
+      {
+        "month": "2016-10",
+        "orders": 324
+      },
+      {
+        "month": "2016-11",
+        "orders": 0
+      },
+      {
+        "month": "2016-12",
+        "orders": 1
+      },
+      {
+        "month": "2018-09",
+        "orders": 16
+      },
+      {
+        "month": "2018-10",
+        "orders": 4
+      }
+    ],
+    "months": [
+      {
+        "month": "2016-09",
+        "orders": 4,
+        "partial": true,
+        "in_window": false
+      },
+      {
+        "month": "2016-10",
+        "orders": 324,
+        "partial": true,
+        "in_window": false
+      },
+      {
+        "month": "2016-11",
+        "orders": 0,
+        "partial": true,
+        "in_window": false
+      },
+      {
+        "month": "2016-12",
+        "orders": 1,
+        "partial": true,
+        "in_window": false
+      },
+      {
+        "month": "2017-01",
+        "orders": 800,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-02",
+        "orders": 1780,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-03",
+        "orders": 2682,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-04",
+        "orders": 2404,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-05",
+        "orders": 3700,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-06",
+        "orders": 3245,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-07",
+        "orders": 4026,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-08",
+        "orders": 4331,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-09",
+        "orders": 4285,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-10",
+        "orders": 4631,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-11",
+        "orders": 7544,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2017-12",
+        "orders": 5673,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-01",
+        "orders": 7269,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-02",
+        "orders": 6728,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-03",
+        "orders": 7211,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-04",
+        "orders": 6939,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-05",
+        "orders": 6873,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-06",
+        "orders": 6167,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-07",
+        "orders": 6292,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-08",
+        "orders": 6512,
+        "partial": false,
+        "in_window": true
+      },
+      {
+        "month": "2018-09",
+        "orders": 16,
+        "partial": true,
+        "in_window": false
+      },
+      {
+        "month": "2018-10",
+        "orders": 4,
+        "partial": true,
+        "in_window": false
+      }
+    ]
+  },
+  "views": [
+    {
+      "name": "data_coverage",
+      "description": "One row per month: number of orders, whether the month is partial, and whether it is inside the analysis window.",
+      "columns": [
+        "month",
+        "orders_count",
+        "is_partial",
+        "in_analysis_window"
+      ],
+      "column_notes": {
+        "month": "",
+        "orders_count": "",
+        "is_partial": "Fewer than 500 orders in the month: results need a warning.",
+        "in_analysis_window": "Month between January 2017 and August 2018."
+      }
+    },
+    {
+      "name": "order_items",
+      "description": "One row per item in an order: product, category, seller, price and freight.",
+      "columns": [
+        "order_id",
+        "order_item_id",
+        "product_id",
+        "seller_id",
+        "price",
+        "freight_value",
+        "category",
+        "product_weight_g",
+        "purchase_date",
+        "purchase_month",
+        "order_status",
+        "is_sale",
+        "is_late",
+        "customer_unique_id",
+        "customer_state",
+        "seller_state",
+        "seller_city"
+      ],
+      "column_notes": {
+        "order_id": "",
+        "order_item_id": "",
+        "product_id": "",
+        "seller_id": "",
+        "price": "Item price, excluding freight. Revenue = sum(price) where is_sale.",
+        "freight_value": "",
+        "category": "English category; unknown if missing; Portuguese name if untranslated.",
+        "product_weight_g": "",
+        "purchase_date": "",
+        "purchase_month": "",
+        "order_status": "",
+        "is_sale": "",
+        "is_late": "",
+        "customer_unique_id": "",
+        "customer_state": "",
+        "seller_state": "",
+        "seller_city": ""
+      }
+    },
+    {
+      "name": "orders",
+      "description": "One row per order: customer, status, purchase and delivery dates, lateness, delivery stages, revenue, freight, payment total and review score.",
+      "columns": [
+        "order_id",
+        "customer_unique_id",
+        "customer_state",
+        "customer_city",
+        "order_status",
+        "purchase_ts",
+        "purchase_date",
+        "purchase_month",
+        "approved_ts",
+        "carrier_ts",
+        "delivered_ts",
+        "estimated_delivery_date",
+        "is_sale",
+        "is_delivered",
+        "is_late",
+        "days_late",
+        "seller_handling_days",
+        "carrier_transit_days",
+        "promised_days",
+        "delivery_days",
+        "item_count",
+        "seller_count",
+        "items_revenue",
+        "freight_total",
+        "payment_total",
+        "review_score",
+        "has_review_comment"
+      ],
+      "column_notes": {
+        "order_id": "",
+        "customer_unique_id": "The person. Use this, not a per-order id, to count customers.",
+        "customer_state": "",
+        "customer_city": "",
+        "order_status": "",
+        "purchase_ts": "",
+        "purchase_date": "",
+        "purchase_month": "First day of the purchase month (order month).",
+        "approved_ts": "",
+        "carrier_ts": "",
+        "delivered_ts": "",
+        "estimated_delivery_date": "",
+        "is_sale": "True unless status is canceled or unavailable. Revenue counts sales only.",
+        "is_delivered": "Status delivered and a customer delivery timestamp exists.",
+        "is_late": "Delivered date later than estimated date (dates, not timestamps). NULL if not delivered.",
+        "days_late": "Delivered date minus estimated date; negative = early. NULL if not delivered.",
+        "seller_handling_days": "Carrier hand-off minus purchase, in days. NULL if missing or negative.",
+        "carrier_transit_days": "Customer delivery minus carrier hand-off, in days. NULL if missing or negative.",
+        "promised_days": "Estimated delivery date minus purchase, in days.",
+        "delivery_days": "Customer delivery minus purchase, in days.",
+        "item_count": "",
+        "seller_count": "Distinct sellers in the order; >1 means a multi-seller order.",
+        "items_revenue": "Sum of item prices, excluding freight; 0 if the order has no items.",
+        "freight_total": "Sum of item freight; never part of revenue.",
+        "payment_total": "Sum of payments; NULL if the order has no payment row.",
+        "review_score": "Score (1-5) of the latest answered review; NULL if not reviewed.",
+        "has_review_comment": ""
+      }
+    },
+    {
+      "name": "payments",
+      "description": "One row per order: payment total, number of payments, installments and payment types.",
+      "columns": [
+        "order_id",
+        "payment_total",
+        "payment_count",
+        "installments_max",
+        "payment_types",
+        "primary_payment_type"
+      ],
+      "column_notes": {
+        "order_id": "",
+        "payment_total": "",
+        "payment_count": "",
+        "installments_max": "",
+        "payment_types": "Distinct payment types joined with +, e.g. credit_card+voucher.",
+        "primary_payment_type": "Payment type of the largest payment row."
+      }
+    },
+    {
+      "name": "reviews",
+      "description": "One row per order: the latest review score and whether it has a comment (the comment text itself is not available).",
+      "columns": [
+        "order_id",
+        "review_score",
+        "review_created_date",
+        "review_answer_ts",
+        "has_comment"
+      ],
+      "column_notes": {
+        "order_id": "",
+        "review_score": "",
+        "review_created_date": "",
+        "review_answer_ts": "",
+        "has_comment": ""
+      }
+    },
+    {
+      "name": "sellers",
+      "description": "One row per seller: seller id, city and state (no seller names).",
+      "columns": [
+        "seller_id",
+        "seller_city",
+        "seller_state"
+      ],
+      "column_notes": {
+        "seller_id": "",
+        "seller_city": "",
+        "seller_state": ""
+      }
+    }
+  ],
+  "definitions": [
+    {
+      "term": "Analysis window",
+      "definition": "January 2017 to August 2018 (data_coverage.in_analysis_window). Data outside it is sparse. When it applies: trends, monthly series, month-to-month comparisons, and per-month averages use only months inside the window (also when the question names a longer period, for example \"average orders per month in 2018\" uses January to August 2018). Totals and \"overall\" figures do not apply the window: they use all data in the period the question asks for, or all data if no period is given (for example, the overall late-delivery rate uses every delivered order; revenue in 2016 uses all of 2016)."
+    },
+    {
+      "term": "\"Today\"",
+      "definition": "2018-08-31. Relative dates (\"last month\", \"this year\") are resolved against this date, so \"last month\" means July 2018."
+    },
+    {
+      "term": "Order month",
+      "definition": "Month of the purchase timestamp."
+    },
+    {
+      "term": "Partial period",
+      "definition": "A month with fewer than 500 orders. Results for it carry a warning. November 2016 has zero orders."
+    },
+    {
+      "term": "Currency",
+      "definition": "Brazilian reais (BRL, R$). Assumed; the source does not state it."
+    },
+    {
+      "term": "Delivered order",
+      "definition": "order_status = 'delivered' and a customer delivery timestamp exists."
+    },
+    {
+      "term": "Late",
+      "definition": "A delivered order whose delivery date is later than its estimated delivery date. Dates are compared, not timestamps, because the estimate is always midnight: comparing timestamps would wrongly mark same-day deliveries as late. NULL for orders that are not delivered."
+    },
+    {
+      "term": "On time",
+      "definition": "A delivered order that is not late."
+    },
+    {
+      "term": "Late rate",
+      "definition": "Late orders divided by delivered orders. Never divide by all orders."
+    },
+    {
+      "term": "Days late",
+      "definition": "Delivery date minus estimated date, in days. Negative means early. NULL if not delivered."
+    },
+    {
+      "term": "Seller handling days",
+      "definition": "Carrier hand-off timestamp minus purchase timestamp, in days (fractional)."
+    },
+    {
+      "term": "Carrier transit days",
+      "definition": "Customer delivery timestamp minus carrier hand-off timestamp, in days."
+    },
+    {
+      "term": "Promised days",
+      "definition": "Estimated delivery date minus purchase timestamp, in days."
+    },
+    {
+      "term": "Delivery days",
+      "definition": "Customer delivery timestamp minus purchase timestamp, in days."
+    },
+    {
+      "term": "Impossible durations",
+      "definition": "A stage duration below zero is a recording error (166 orders were handed to the carrier before purchase; 23 were delivered before hand-off). Such durations are NULL."
+    },
+    {
+      "term": "Sale",
+      "definition": "An order whose status is not canceled or unavailable."
+    },
+    {
+      "term": "Revenue",
+      "definition": "Sum of item price over sales, excluding freight. Including canceled and unavailable orders would change 2017 revenue by 0.77%."
+    },
+    {
+      "term": "Freight",
+      "definition": "Sum of item freight_value. Reported separately, never inside revenue."
+    },
+    {
+      "term": "Payment total",
+      "definition": "Sum of payment rows for an order. One row per order in payments, so joining it never multiplies item rows."
+    },
+    {
+      "term": "Average order value",
+      "definition": "Revenue divided by the number of sale orders that have items."
+    },
+    {
+      "term": "Customer",
+      "definition": "A person: customer_unique_id. Never customer_id, which is created per order."
+    },
+    {
+      "term": "Repeat customer",
+      "definition": "A customer with more than one order. About 3% of customers."
+    },
+    {
+      "term": "Category",
+      "definition": "English category name. Products without a category are unknown. The two categories without an English translation keep their Portuguese names."
+    },
+    {
+      "term": "Review score",
+      "definition": "Score of the latest answered review for the order (one per order). Review text is never available."
+    },
+    {
+      "term": "Ranking eligibility",
+      "definition": "A seller or group needs at least 30 orders to appear in a ranking; the sample size is always shown."
+    },
+    {
+      "term": "Multi-seller order",
+      "definition": "An order with items from more than one seller (1,278 orders). Order-level outcomes such as lateness are not attributed to a single seller without saying so."
+    },
+    {
+      "term": "Baseline (investigations)",
+      "definition": "The pooled value over all other months in the analysis window, excluding the period under investigation."
+    }
+  ],
+  "examples": [
+    {
+      "topic": "Sales",
+      "questions": [
+        "Top 5 categories by revenue in 2017",
+        "What was the monthly revenue in 2018?",
+        "What is the average order value by payment type?"
+      ]
+    },
+    {
+      "topic": "Delivery",
+      "questions": [
+        "How is the late-delivery rate trending?",
+        "Which states have the highest late-delivery rate?",
+        "Why was March 2018 so bad for deliveries?"
+      ]
+    },
+    {
+      "topic": "Customers",
+      "questions": [
+        "How many customers placed more than one order?",
+        "Which 5 states have the most customers?"
+      ]
+    },
+    {
+      "topic": "Sellers",
+      "questions": [
+        "Which 5 sellers had the most orders in 2018?",
+        "Which seller states have the highest average review score?"
+      ]
+    },
+    {
+      "topic": "Reviews",
+      "questions": [
+        "How does the review score differ for late and on-time orders?",
+        "What share of reviews are 1-star by month?"
+      ]
+    },
+    {
+      "topic": "Products",
+      "questions": [
+        "Which categories have the highest freight cost per item?",
+        "How many distinct products were sold in 2017?"
+      ]
+    }
+  ],
+  "limits": [
+    "No names: sellers and customers are identified by ids, city and state only.",
+    "No profit or costs: revenue is item prices; freight is reported separately.",
+    "No review text: only scores and whether a comment exists.",
+    "No forecasts or predictions: the data describes 2016 to 2018 only.",
+    "No causes: the data shows where and when something happened, not why.",
+    "No changes: the agent can only read the data, never modify it."
+  ],
+  "missing_fields": [
+    {
+      "field": "product names",
+      "closest": "product id, category, and weight"
+    },
+    {
+      "field": "seller names",
+      "closest": "seller id, city, and state"
+    },
+    {
+      "field": "customer names and contact details",
+      "closest": "customer id, city, and state"
+    },
+    {
+      "field": "profit and costs",
+      "closest": "revenue (item prices) and freight"
+    },
+    {
+      "field": "review text",
+      "closest": "review scores and whether a review has a comment"
+    },
+    {
+      "field": "returns and refunds",
+      "closest": "order status, such as canceled orders"
+    },
+    {
+      "field": "discounts and promotions",
+      "closest": "payment types, including vouchers as a payment type"
+    },
+    {
+      "field": "stock and inventory",
+      "closest": "items sold per product"
+    },
+    {
+      "field": "website traffic",
+      "closest": "orders and customers"
+    }
+  ]
+}

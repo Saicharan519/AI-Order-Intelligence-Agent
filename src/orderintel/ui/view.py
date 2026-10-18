@@ -36,7 +36,7 @@ STATUS_MESSAGES = {
         "No safe query could be produced for this question (the validator rejected every "
         "attempt, or the query failed or timed out). Nothing was run against the data.",
     ),
-    "not_available": ("info", "That analysis is not available."),
+    "not_available": ("info", "The data has nothing for that period or analysis."),
     "error": ("error", "The request failed."),
 }
 

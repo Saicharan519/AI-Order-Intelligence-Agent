@@ -1,0 +1,616 @@
+{
+  "notes": [
+    "Late rate was 19.0% against a 5.8% baseline (delta 13.2 points), with 1,328 late orders out of 7,003 delivered.",
+    "The top driver was carrier_transit: transit averaged 12.97 days versus a 9.06-day baseline, roughly 3.9 days longer, while handling was only slightly above baseline (3.33 vs 3.19 days).",
+    "The problem was systemic: excluding the two worst states still left a 23.7% late rate, and late orders spanned 466 sellers with the top 5 accounting for only 11.5% of them.",
+    "It was concentrated geographically: RJ ran 34.5% late (baseline 10.5%, 208 excess late orders), MG 20.4% (baseline 3.3%, 147 excess), and SP 9.4% (baseline 4.1%, 158 excess).",
+    "Late deliveries coincided with much worse reviews: average 2.07 versus 4.21 for on-time, with a 59.3% one-star share versus 7.9%."
+  ],
+  "route": "investigate",
+  "scope": {
+    "n": 7003,
+    "period": {
+      "end": "2018-03-31",
+      "start": "2018-03-01",
+      "source": "sql"
+    },
+    "filters": [],
+    "truncated": false,
+    "population": "delivered orders",
+    "assumptions": [],
+    "definitions": [
+      "Baseline: all other months of January 2017 to August 2018, same filters"
+    ],
+    "partial_period_warnings": []
+  },
+  "usage": {
+    "cost_usd": 0.00033057,
+    "llm_calls": 2,
+    "tokens_in": 1655,
+    "latency_ms": 7326,
+    "tokens_out": 493,
+    "cached_calls": 1,
+    "tokens_cache_hit": 896
+  },
+  "status": "ok",
+  "caveats": [
+    "The data shows where delay occurred, not why (observational data).",
+    "Order-level lateness is attributed to every seller in a multi-seller order.",
+    "Some category samples are small, e.g. audio with only 33 orders, so its 42.4% rate is unstable.",
+    "Promised days were actually shorter than baseline (22.03 vs 23.78), so the elevated late rate is not explained by longer promises."
+  ],
+  "evidence": [
+    {
+      "id": "s1",
+      "ms": 216,
+      "sql": "SELECT COUNT(*) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) AS n_period, COUNT(*) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE) AND is_late) AS late_period, COUNT(*) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE)) AS n_base, COUNT(*) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE) AND is_late) AS late_base FROM orders WHERE is_delivered AND purchase_month >= CAST('2017-01-01' AS DATE) AND purchase_month < CAST('2018-09-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 1,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          7003.0,
+          1328.0,
+          89200.0,
+          5203.0
+        ]
+      ]
+    },
+    {
+      "id": "s2",
+      "ms": 295,
+      "sql": "SELECT purchase_month = CAST('2018-03-01' AS DATE) AS in_period, ROUND(CAST(AVG(seller_handling_days) AS DECIMAL), 2) AS handling_days, ROUND(CAST(AVG(carrier_transit_days) AS DECIMAL), 2) AS transit_days, ROUND(CAST(AVG(promised_days) AS DECIMAL), 2) AS promised_days, COUNT(*) AS n FROM orders WHERE is_delivered AND purchase_month >= CAST('2017-01-01' AS DATE) AND purchase_month < CAST('2018-09-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) GROUP BY 1 LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 2,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          false,
+          3.19,
+          9.06,
+          23.78,
+          89200.0
+        ],
+        [
+          true,
+          3.33,
+          12.97,
+          22.03,
+          7003.0
+        ]
+      ]
+    },
+    {
+      "id": "s3",
+      "ms": 285,
+      "sql": "SELECT customer_state AS state, COUNT(*) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) AS n_period, COUNT(*) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE) AND is_late) AS late_period, COUNT(*) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE)) AS n_base, COUNT(*) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE) AND is_late) AS late_base FROM orders WHERE is_delivered AND purchase_month >= CAST('2017-01-01' AS DATE) AND purchase_month < CAST('2018-09-01' AS DATE) GROUP BY customer_state ORDER BY customer_state LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 27,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          "AC",
+          2.0,
+          0.0,
+          78.0,
+          3.0
+        ],
+        [
+          "AL",
+          27.0,
+          9.0,
+          369.0,
+          76.0
+        ],
+        [
+          "AM",
+          8.0,
+          2.0,
+          137.0,
+          2.0
+        ],
+        [
+          "AP",
+          5.0,
+          0.0,
+          62.0,
+          2.0
+        ],
+        [
+          "BA",
+          235.0,
+          74.0,
+          3018.0,
+          322.0
+        ],
+        [
+          "CE",
+          93.0,
+          47.0,
+          1180.0,
+          129.0
+        ],
+        [
+          "DF",
+          147.0,
+          27.0,
+          1927.0,
+          91.0
+        ],
+        [
+          "ES",
+          133.0,
+          55.0,
+          1859.0,
+          159.0
+        ],
+        [
+          "GO",
+          141.0,
+          28.0,
+          1809.0,
+          100.0
+        ],
+        [
+          "MA",
+          49.0,
+          25.0,
+          664.0,
+          100.0
+        ]
+      ]
+    },
+    {
+      "id": "s4",
+      "ms": 766,
+      "sql": "SELECT category, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) AS n_period, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE) AND is_late) AS late_period, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE)) AS n_base, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE) AND is_late) AS late_base FROM order_items WHERE is_late IS NOT NULL AND purchase_month >= CAST('2017-01-01' AS DATE) AND purchase_month < CAST('2018-09-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) GROUP BY category HAVING COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) >= 30 ORDER BY category LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 30,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          "audio",
+          33.0,
+          14.0,
+          313.0,
+          27.0
+        ],
+        [
+          "auto",
+          317.0,
+          59.0,
+          3484.0,
+          219.0
+        ],
+        [
+          "baby",
+          208.0,
+          36.0,
+          2592.0,
+          190.0
+        ],
+        [
+          "bed_bath_table",
+          652.0,
+          140.0,
+          8615.0,
+          549.0
+        ],
+        [
+          "books_general_interest",
+          33.0,
+          2.0,
+          462.0,
+          30.0
+        ],
+        [
+          "computers_accessories",
+          630.0,
+          101.0,
+          5887.0,
+          315.0
+        ],
+        [
+          "consoles_games",
+          53.0,
+          12.0,
+          958.0,
+          50.0
+        ],
+        [
+          "construction_tools_construction",
+          48.0,
+          6.0,
+          688.0,
+          48.0
+        ],
+        [
+          "cool_stuff",
+          239.0,
+          33.0,
+          3313.0,
+          177.0
+        ],
+        [
+          "electronics",
+          237.0,
+          45.0,
+          2279.0,
+          147.0
+        ]
+      ]
+    },
+    {
+      "id": "s5",
+      "ms": 100,
+      "sql": "WITH s AS (SELECT seller_id, COUNT(DISTINCT order_id) AS late_orders FROM order_items WHERE is_late AND purchase_month = CAST('2018-03-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) GROUP BY seller_id) SELECT COUNT(*) AS sellers_with_late_orders, (SELECT SUM(late_orders) FROM (SELECT late_orders FROM s ORDER BY late_orders DESC LIMIT 5) AS t) AS top5_late_orders FROM s LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 1,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          466.0,
+          153.0
+        ]
+      ]
+    },
+    {
+      "id": "s6",
+      "ms": 570,
+      "sql": "SELECT seller_id, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) AS n_period, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE) AND is_late) AS late_period, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE)) AS n_base, COUNT(DISTINCT order_id) FILTER(WHERE purchase_month <> CAST('2018-03-01' AS DATE) AND is_late) AS late_base FROM order_items WHERE is_late IS NOT NULL AND purchase_month >= CAST('2017-01-01' AS DATE) AND purchase_month < CAST('2018-09-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) GROUP BY seller_id HAVING COUNT(DISTINCT order_id) FILTER(WHERE purchase_month = CAST('2018-03-01' AS DATE)) >= 30 ORDER BY seller_id LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 43,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          "06a2c3af7b3aee5d69171b0e14f0ee87",
+          41.0,
+          17.0,
+          348.0,
+          57.0
+        ],
+        [
+          "0dd184061fb0eaa7ca37932c68ab91c5",
+          32.0,
+          7.0,
+          129.0,
+          10.0
+        ],
+        [
+          "1025f0e2d44d7041d6cf58b6550e0bfa",
+          80.0,
+          13.0,
+          830.0,
+          59.0
+        ],
+        [
+          "128639473a139ac0f3e5f5ade55873a5",
+          45.0,
+          6.0,
+          482.0,
+          16.0
+        ],
+        [
+          "16090f2ca825584b5a147ab24aa30c86",
+          31.0,
+          8.0,
+          367.0,
+          24.0
+        ],
+        [
+          "1f50f920176fa81dab994f9023523100",
+          90.0,
+          25.0,
+          1309.0,
+          99.0
+        ],
+        [
+          "218d46b86c1881d022bce9c68a7d4b15",
+          38.0,
+          11.0,
+          344.0,
+          22.0
+        ],
+        [
+          "391fc6631aebcf3004804e51b40bcf1e",
+          38.0,
+          9.0,
+          475.0,
+          36.0
+        ],
+        [
+          "3d871de0142ce09b7081e2b9d1733cb1",
+          47.0,
+          8.0,
+          1017.0,
+          50.0
+        ],
+        [
+          "4830e40640734fc1c52cd21127c341d4",
+          40.0,
+          4.0,
+          164.0,
+          6.0
+        ]
+      ]
+    },
+    {
+      "id": "s7",
+      "ms": 274,
+      "sql": "SELECT is_late, COUNT(review_score) AS n_reviews, ROUND(CAST(AVG(review_score) AS DECIMAL), 2) AS avg_score, COUNT(*) FILTER(WHERE review_score = 1) AS one_star FROM orders WHERE is_delivered AND purchase_month = CAST('2018-03-01' AS DATE) AND (CAST(NULL AS TEXT) IS NULL OR customer_state = NULL) GROUP BY is_late ORDER BY is_late LIMIT 501",
+      "kind": "playbook_step",
+      "params": {
+        "state": null,
+        "period": "2018-03"
+      },
+      "attempts": [],
+      "row_count": 2,
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "rows_preview": [
+        [
+          false,
+          5652.0,
+          4.21,
+          448.0
+        ],
+        [
+          true,
+          1296.0,
+          2.07,
+          769.0
+        ]
+      ]
+    }
+  ],
+  "headline": "March 2018 was genuinely elevated for late deliveries: 19.0% of the 7,003 delivered orders were late versus a 5.8% baseline, a gap of 13.2 percentage points, and the pattern was systemic rather than confined to a few states or sellers.",
+  "warnings": [],
+  "followups": [
+    {
+      "label": "Which sellers had the most late orders in 2018-03?",
+      "question": "Which sellers had the most late orders in 2018-03?",
+      "inherits_scope": true
+    },
+    {
+      "label": "Break down 2018-03 by product category",
+      "question": "Break down 2018-03 by product category.",
+      "inherits_scope": true
+    }
+  ],
+  "grounding": {
+    "untraced": [],
+    "regenerated": false,
+    "causal_terms": [],
+    "numbers_checked": 36
+  },
+  "components": [
+    {
+      "type": "report",
+      "verdict": "elevated",
+      "findings": {
+        "state": null,
+        "period": "2018-03",
+        "caveats": [
+          "The data shows where delay occurred, not why (observational data).",
+          "Order-level lateness is attributed to every seller in a multi-seller order."
+        ],
+        "verdict": "elevated",
+        "playbook": "late_delivery_diagnosis",
+        "systemic": true,
+        "late_rate": 19.0,
+        "top_driver": "carrier_transit",
+        "top_states": [
+          {
+            "n": 864,
+            "name": "RJ",
+            "rate": 34.5,
+            "baseline_rate": 10.5,
+            "excess_late_orders": 208
+          },
+          {
+            "n": 2971,
+            "name": "SP",
+            "rate": 9.4,
+            "baseline_rate": 4.1,
+            "excess_late_orders": 158
+          },
+          {
+            "n": 856,
+            "name": "MG",
+            "rate": 20.4,
+            "baseline_rate": 3.3,
+            "excess_late_orders": 147
+          }
+        ],
+        "late_orders": 1328,
+        "top_sellers": [
+          {
+            "n": 113,
+            "name": "4869f7a5dfa277a7dca6462dcf3b52b2",
+            "rate": 31.0,
+            "baseline_rate": 8.2,
+            "excess_late_orders": 26
+          },
+          {
+            "n": 112,
+            "name": "4a3ca9315b744ce9f8e9374361493884",
+            "rate": 29.5,
+            "baseline_rate": 8.4,
+            "excess_late_orders": 24
+          },
+          {
+            "n": 60,
+            "name": "620c87c171fb2a6dd6e8bb4dec959fc6",
+            "rate": 45.0,
+            "baseline_rate": 5.6,
+            "excess_late_orders": 24
+          }
+        ],
+        "delta_points": 13.2,
+        "transit_days": 12.97,
+        "baseline_rate": 5.8,
+        "handling_days": 3.33,
+        "promised_days": 22.03,
+        "review_n_late": 1296,
+        "top_categories": [
+          {
+            "n": 33,
+            "name": "audio",
+            "rate": 42.4,
+            "baseline_rate": 8.6,
+            "excess_late_orders": null
+          },
+          {
+            "n": 407,
+            "name": "watches_gifts",
+            "rate": 24.6,
+            "baseline_rate": 6.0,
+            "excess_late_orders": null
+          },
+          {
+            "n": 605,
+            "name": "health_beauty",
+            "rate": 23.8,
+            "baseline_rate": 6.3,
+            "excess_late_orders": null
+          }
+        ],
+        "review_avg_late": 2.07,
+        "delivered_orders": 7003,
+        "review_n_on_time": 5652,
+        "top5_seller_share": 11.5,
+        "review_avg_on_time": 4.21,
+        "one_star_share_late": 59.3,
+        "transit_days_baseline": 9.06,
+        "handling_days_baseline": 3.19,
+        "one_star_share_on_time": 7.9,
+        "promised_days_baseline": 23.78,
+        "sellers_with_late_orders": 466,
+        "rate_excluding_top2_states": 23.7
+      },
+      "playbook": "late_delivery_diagnosis",
+      "top_driver": "carrier_transit"
+    }
+  ],
+  "request_id": "44164307-2a09-4598-b9b0-270d432c7b0c"
+}

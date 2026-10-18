@@ -1,0 +1,138 @@
+{
+  "request_id": "e74f5223-63ae-4e39-be75-20d35cc34790",
+  "route": "answer",
+  "status": "ok",
+  "headline": "Oct 2016 is only partly covered by this data: 324 orders and R$44,507 revenue, against about 5,152 orders and R$701,182 in a typical month.",
+  "components": [
+    {
+      "type": "chart",
+      "kind": "bar",
+      "x": "period",
+      "y": [
+        "orders"
+      ]
+    },
+    {
+      "type": "table",
+      "columns": [
+        "period",
+        "orders",
+        "delivered_orders",
+        "revenue",
+        "partial_month"
+      ],
+      "rows": [
+        [
+          "Oct 2016",
+          324,
+          265,
+          44507.3,
+          true
+        ],
+        [
+          "Typical month (Jan 2017 to Aug 2018, median)",
+          5152,
+          null,
+          701182.0,
+          false
+        ]
+      ]
+    }
+  ],
+  "scope": {
+    "period": {
+      "start": "2016-10-01",
+      "end": "2016-10-01",
+      "source": "sql"
+    },
+    "population": null,
+    "filters": [],
+    "definitions": [
+      "Partial month: fewer than 500 orders in the data",
+      "Typical month: the median month of the analysis window",
+      "Revenue: item prices of orders that are not canceled or unavailable"
+    ],
+    "assumptions": [
+      "Answered from the data's coverage, without a model call"
+    ],
+    "n": 324,
+    "truncated": false,
+    "partial_period_warnings": []
+  },
+  "evidence": [
+    {
+      "id": "e1",
+      "kind": "sql",
+      "sql": "SELECT dc.month, dc.orders_count AS orders, dc.is_partial, dc.in_analysis_window, COUNT(o.order_id) FILTER(WHERE o.is_delivered) AS delivered_orders, ROUND(COALESCE(SUM(o.items_revenue) FILTER(WHERE o.is_sale), 0), 2) AS revenue FROM data_coverage AS dc LEFT JOIN orders AS o ON o.purchase_month = dc.month GROUP BY dc.month, dc.orders_count, dc.is_partial, dc.in_analysis_window ORDER BY dc.month LIMIT 501",
+      "params": {},
+      "row_count": 26,
+      "rows_preview": [
+        [
+          "Oct 2016",
+          324.0,
+          265.0,
+          44507.3,
+          true
+        ],
+        [
+          "Typical month (Jan 2017 to Aug 2018, median)",
+          5152.0,
+          null,
+          701182.0,
+          false
+        ]
+      ],
+      "validator": {
+        "ok": true,
+        "rules_checked": [
+          "VR-01",
+          "VR-02",
+          "VR-03",
+          "VR-04",
+          "VR-05",
+          "VR-06",
+          "VR-07",
+          "VR-08",
+          "VR-09"
+        ]
+      },
+      "attempts": [],
+      "ms": 437
+    }
+  ],
+  "notes": [
+    "The orders run from Sep 2016 to Oct 2018, but only Jan 2017 to Aug 2018 has steady volume; the months before and after it have very few orders.",
+    "So a low figure here reflects how much of the period the data covers, not how the business performed."
+  ],
+  "caveats": [
+    "The dataset does not say why these months are sparse."
+  ],
+  "warnings": [],
+  "grounding": {
+    "numbers_checked": 0,
+    "untraced": [],
+    "causal_terms": [],
+    "regenerated": false
+  },
+  "followups": [
+    {
+      "label": "What was the monthly revenue from Jan 2017 to Aug 2018?",
+      "question": "What was the monthly revenue from Jan 2017 to Aug 2018?",
+      "inherits_scope": false
+    },
+    {
+      "label": "How is the late-delivery rate trending?",
+      "question": "How is the late-delivery rate trending?",
+      "inherits_scope": false
+    }
+  ],
+  "usage": {
+    "llm_calls": 0,
+    "cached_calls": 0,
+    "tokens_in": 0,
+    "tokens_cache_hit": 0,
+    "tokens_out": 0,
+    "cost_usd": 0.0,
+    "latency_ms": 0
+  }
+}

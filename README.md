@@ -14,8 +14,11 @@ Design documents: [PRD](docs/PRD.md) · [Technical design](docs/TECHNICAL_DESIGN
 
 ```mermaid
 flowchart LR
-  UI["Streamlit UI"] -->|"question + session id"| API["FastAPI backend<br/>access code, rate limits"]
-  API --> RT["Router (LLM, JSON)"]
+  WEB["Web app (Next.js)"] -->|"/api proxy, allow-listed"| API["FastAPI backend<br/>access code, rate limits"]
+  UI["Streamlit UI (simple fallback)"] -->|"question + session id"| API
+  API --> PC["Pre-check (code): about the data, periods outside or at the edges of the data"]
+  PC -->|"answered in code"| OUT
+  PC --> RT["Router (LLM, JSON) + topic guard"]
   RT -->|answer| SG["SQL generator (LLM, JSON)"]
   RT -->|investigate| PB["Playbook runner (typed params)"]
   RT -->|"clarify / refuse"| OUT["Structured response"]
@@ -52,7 +55,7 @@ model-written SQL ──► validator ──► ValidatedSQL ──► executor 
 | Grounding | every number in an answer or narration must trace to the query results or findings; causal wording is flagged |
 | Budget guard | worst-case cost checked before every call against a $1.90 total and $0.40 daily cap |
 
-Stack: Python 3.12, PostgreSQL 18 (Docker), psycopg 3, sqlglot + pglast, Pydantic v2, LangGraph (thin wiring), FastAPI, Streamlit, DeepSeek (`deepseek-flash`) with the Gemini free tier as an optional second provider.
+Stack: Python 3.12, PostgreSQL 18 (Docker), psycopg 3, sqlglot + pglast, Pydantic v2, LangGraph (thin wiring), FastAPI, a Next.js 16 + React 19 + Tailwind web app (Streamlit kept as a simple fallback), DeepSeek (`deepseek-flash`) with the Gemini free tier as an optional second provider.
 
 ## Results (measured)
 
@@ -139,7 +142,7 @@ Requirements: Python 3.11 or later, Docker Desktop (running), git. Commands are 
    .venv/Scripts/python scripts/load_data.py
    .venv/Scripts/python scripts/check_counts.py
    ```
-   Expected: five roles and five migrations; `Loaded 550,759 rows`; `required checks failed: 0; PRD figures differing: 0`. All three are safe to re-run.
+   Expected: five roles and six migrations; `Loaded 550,759 rows`; `required checks failed: 0; PRD figures differing: 0`. All three are safe to re-run.
 
 Without the Kaggle data you can still run everything except the real-data figures on a synthetic dataset: `.venv/Scripts/python -m scripts.build_mini_db --db orderintel_ci`, then set `POSTGRES_DB=orderintel_ci` in `.env`.
 
@@ -151,15 +154,23 @@ Start the API (terminal 1):
 .venv/Scripts/python -m uvicorn orderintel.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-Start the UI (terminal 2) and open http://localhost:8501:
+Start the web app (terminal 2; needs Node.js 22 or later) and open http://localhost:3000:
 
 ```bash
-.venv/Scripts/python -m streamlit run src/orderintel/ui/app.py
+cd web
+npm install
+npm run dev
 ```
 
-Type the `ACCESS_CODE` from your `.env` into the access-code field. For local development only, `-- --local` after the UI command makes the UI server use the code from `.env` itself (accepted only when `API_URL` points to localhost). Try the three example questions in the sidebar. Every request is traced; summarise the traces with `.venv/Scripts/python scripts/trace_report.py`.
+The app asks for the access code: the `ACCESS_CODE` value in your `.env`. It is kept in the browser tab's memory only. For local development, `npm run dev:local` makes the web server read the code from `.env` itself, so the browser never sees it (accepted only when `API_URL` points to localhost). The browser talks only to the web app's `/api` routes, which forward eight allow-listed endpoints to FastAPI.
 
-API: `POST /v1/ask`, `GET /v1/requests/{id}`, `POST /v1/sessions/{id}/scope/clear`, `GET /v1/budget` (all need the `X-Access-Code` header) and `GET /v1/health`. Set `LLM_ENABLED=false` in `.env` to block all model calls.
+What the web app shows: an "Explore the data" guide (counts, tables and columns, definitions, example questions by topic, limits), friendly refusals that point to it, example questions, saved conversations grouped by day (reopened from the stored answers at no cost), the answer card with KPI tiles, charts (Recharts), sortable tables with CSV download, the investigation report (verdict, driver, where the days went, states and sellers by excess late orders), the evidence (validated SQL with parameters and row previews), the scope and definitions, follow-up suggestions, the session scope bar, the model budget, API health, and a per-request trace drawer.
+
+To work on the UI with no backend and no model calls ($0), `npm run dev:mock` starts a mock API that replays recorded answers (access code `mock`).
+
+The original Streamlit UI still works as a simple fallback: `.venv/Scripts/python -m streamlit run src/orderintel/ui/app.py -- --local` (http://localhost:8501). Every request is traced; summarise the traces with `.venv/Scripts/python scripts/trace_report.py`.
+
+API: `POST /v1/ask`, `GET /v1/catalog` (the data guide: counts, tables, definitions, example questions; no model call), `GET /v1/requests/{id}`, `GET /v1/sessions` and `GET /v1/sessions/{id}` (saved conversations, read from the traces), `POST /v1/sessions/{id}/scope/clear`, `GET /v1/budget` (all need the `X-Access-Code` header) and `GET /v1/health`. Set `LLM_ENABLED=false` in `.env` to block all model calls.
 
 ## Tests and evaluation
 
@@ -169,7 +180,9 @@ API: `POST /v1/ask`, `GET /v1/requests/{id}`, `POST /v1/sessions/{id}/scope/clea
 .venv/Scripts/python scripts/check_secrets.py --all
 ```
 
-Expected with the real data loaded: 616 passed. No test calls a real model: model behaviour is tested with a fake model, and tests marked `paid` never run by default. Tests marked `realdata` check figures of the real dataset and are skipped (with the reason shown) on the synthetic dataset; CI runs that way on every push (lint, secret scan, and 497 tests against a PostgreSQL service).
+Web app checks (from `web/`): `npm run lint`, `npm run typecheck`, `npm test` (48 tests: formatting, the proxy's allow-list and header rules, and the screens rendered against recorded API responses), `npm run build`.
+
+Expected with the real data loaded: 676 passed. No test calls a real model: model behaviour is tested with a fake model, and tests marked `paid` never run by default. Tests marked `realdata` check figures of the real dataset and are skipped (with the reason shown) on the synthetic dataset; CI runs that way on every push (lint, secret scan, and 552 tests against a PostgreSQL service), plus a second job for the web app (lint, types, tests, build).
 
 Free evaluation tools (no model calls):
 
@@ -189,6 +202,7 @@ Paid evaluations print an estimate with `--estimate` and refuse to run without `
 |---|---|
 | `src/orderintel/` | `agent/` (router, SQL generation, answer, grounding, scope, Ask graph), `guard/` (validator), `db/` (connections, executor), `playbooks/`, `llm/` (client, pricing, budget, cache), `api/`, `ui/`, `trace/`, `safety/` (test-only injection harness) |
 | `db/migrations/` | raw tables, analytics views, trace tables, injection-test schema, request traces |
+| `web/` | Next.js web app: `src/app/` (page, `/api` proxy routes), `src/components/` (workspace, answer card, report, charts, trace drawer), `src/lib/` (API client, formatting, server-only proxy), `src/test/` (tests and recorded responses), `scripts/` (local-mode and mock launchers) |
 | `prompts/` | versioned prompts |
 | `glossary/` | business definitions used by the model and the views |
 | `eval/` | golden questions (test split frozen by SHA-256), attack cases, runners, results, reports |
@@ -203,8 +217,9 @@ Paid evaluations print an estimate with `--estimate` and refuse to run without `
 | `password authentication failed` | A password in `.env` changed after the roles were created. Re-run `scripts/migrate.py`. |
 | Port 5432 already in use | Another PostgreSQL is running. Set `POSTGRES_PORT=5433` in `.env`. |
 | `LOAD FAILED ... missing files` | A CSV was extracted into a subfolder. Move the 9 files directly into `data/raw/`. |
-| UI says "The access code is missing or wrong." | Type the `ACCESS_CODE` from `.env` and press Enter, or start the UI with `-- --local`. |
-| UI says "The API is not reachable." | Start the API first (terminal 1). |
+| UI says "The access code is missing or wrong." | Type the `ACCESS_CODE` from `.env`, or start the web app with `npm run dev:local` (Streamlit: `-- --local`). |
+| UI says "The API is not reachable." | Start the API first (terminal 1). The web app reads `API_URL` from the environment or `.env` (default `http://127.0.0.1:8000`). |
+| `npm install` is slow or files are locked | OneDrive is syncing `web/node_modules`. Pause sync during the install. |
 | `Permission denied` inside `.venv` | OneDrive sync can lock files. Pause sync or recreate the venv. |
 | Secret check fails | It names the file, line, and rule (never the value). Move the secret into `.env`; if it was ever committed, rotate it. |
 

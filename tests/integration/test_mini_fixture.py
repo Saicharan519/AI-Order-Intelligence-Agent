@@ -169,3 +169,53 @@ def unplanted(planted):
 def test_without_plants_nothing_is_detected(unplanted, period, state):
     f = run(period, state)
     assert f.verdict == "nothing_notable", (period, state, f.late_rate, f.baseline_rate)
+
+
+def test_no_playbook_finding_contradicts_another_in_any_month(planted):
+    """Both playbooks, every month of the data (including the partial edges)."""
+    from orderintel.db.connect import connect_agent
+    from orderintel.playbooks import PLAYBOOKS
+    from orderintel.playbooks.base import PlaybookParams
+    from orderintel.playbooks.checks import inconsistencies
+
+    with connect_agent(planted) as c:
+        months = [
+            m[0].isoformat()[:7]
+            for m in c.execute("SELECT month FROM analytics.data_coverage ORDER BY 1").fetchall()
+        ]
+    found = {}
+    for name, module in PLAYBOOKS.items():
+        for m in months:
+            _, f = module.run(PlaybookParams(period=m), planted)
+            if problems := inconsistencies(f.as_dict()):
+                found[(name, m)] = problems
+    assert found == {}
+
+
+@pytest.mark.realdata
+def test_no_contradictions_on_the_real_data_including_partial_months():
+    """The real data has the partial edge months (Sep 2016, Oct 2018) the bug appeared in.
+    Partial months and the first and last month of the analysis window (all 26 months take
+    two and a half minutes and add nothing: the window months share the same code path)."""
+    from orderintel.db.connect import connect_agent
+    from orderintel.playbooks import PLAYBOOKS
+    from orderintel.playbooks.checks import inconsistencies
+
+    with connect_agent() as c:
+        months = [
+            m[0].isoformat()[:7]
+            for m in c.execute(
+                "SELECT month FROM analytics.data_coverage WHERE is_partial OR month IN "
+                "((SELECT min(month) FROM analytics.data_coverage WHERE in_analysis_window),"
+                " (SELECT max(month) FROM analytics.data_coverage WHERE in_analysis_window))"
+                " ORDER BY 1"
+            ).fetchall()
+        ]
+    assert len(months) >= 3
+    found = {}
+    for name, module in PLAYBOOKS.items():
+        for m in months:
+            _, f = module.run(PlaybookParams(period=m))
+            if problems := inconsistencies(f.as_dict()):
+                found[(name, m)] = problems
+    assert found == {}
