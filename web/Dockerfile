@@ -13,7 +13,8 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# public/ is empty and git keeps no empty folders, so a fresh clone has none: create it.
+RUN mkdir -p public && npm run build
 
 FROM node:24.11-bookworm-slim AS run
 WORKDIR /app
